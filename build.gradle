@@ -10,16 +10,10 @@ repositories {
     maven{ url 'https://www.jitpack.io' }
 }
 
-compileJava{
-    options.compilerArgs.addAll([
-        "--release", "8"
-    ])
-}
-
 dependencies {
-    implementation 'org.ow2.asm:asm:9.3'
-    implementation 'com.linkedin.dexmaker:dexmaker:2.28.1'
-    annotationProcessor "com.github.Anuken:jabel:0.7.0"
+  implementation 'org.ow2.asm:asm:9.3'
+  implementation 'com.linkedin.dexmaker:dexmaker:2.28.1'
+  annotationProcessor "com.github.Anuken:jabel:0.7.0"
 }
 
 test {

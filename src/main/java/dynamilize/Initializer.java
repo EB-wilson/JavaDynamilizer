@@ -1,4 +1,4 @@
-package dynamilize.base;
+package dynamilize;
 
 @FunctionalInterface
 public interface Initializer{

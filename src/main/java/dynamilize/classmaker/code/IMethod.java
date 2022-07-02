@@ -1,24 +1,33 @@
 package dynamilize.classmaker.code;
 
-import dynamilize.classmaker.CodeVisitor;
+import dynamilize.classmaker.ElementVisitor;
+import dynamilize.classmaker.Parameter;
+import dynamilize.classmaker.code.annotation.AnnotatedElement;
 
 import java.util.List;
 
-public interface IMethod<S, R> extends Code{
+public interface IMethod<S, R> extends Element, AnnotatedElement{
   @Override
-  default void accept(CodeVisitor visitor){
+  default void accept(ElementVisitor visitor){
     visitor.visitMethod(this);
+  }
+
+  @Override
+  default ElementKind kind(){
+    return ElementKind.METHOD;
   }
 
   String name();
 
   int modifiers();
 
-  List<IClass<?>> paramTypes();
+  String typeDescription();
+
+  List<Parameter<?>> parameters();
 
   IClass<S> owner();
 
   IClass<R> returnType();
 
-  ICodeBlock block();
+  ICodeBlock<R> block();
 }

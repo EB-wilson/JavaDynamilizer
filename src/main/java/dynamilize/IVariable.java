@@ -1,6 +1,4 @@
-package dynamilize.base;
-
-import javax.xml.crypto.Data;
+package dynamilize;
 
 public interface IVariable{
   default void poolAdded(DataPool<?> pool){}

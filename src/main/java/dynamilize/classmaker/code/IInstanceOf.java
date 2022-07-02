@@ -1,11 +1,16 @@
 package dynamilize.classmaker.code;
 
-import dynamilize.classmaker.CodeVisitor;
+import dynamilize.classmaker.ElementVisitor;
 
-public interface IInstanceOf extends Code{
+public interface IInstanceOf extends Element{
   @Override
-  default void accept(CodeVisitor visitor){
+  default void accept(ElementVisitor visitor){
     visitor.visitInstanceOf(this);
+  }
+
+  @Override
+  default ElementKind kind(){
+    return ElementKind.INSTANCEOF;
   }
 
   ILocal<?> target();

@@ -1,12 +1,17 @@
 package dynamilize.classmaker.code;
 
-import dynamilize.classmaker.CodeVisitor;
+import dynamilize.classmaker.ElementVisitor;
 
-public interface IGoto extends Code{
+public interface IGoto extends Element{
   @Override
-  default void accept(CodeVisitor visitor){
+  default void accept(ElementVisitor visitor){
     visitor.visitGoto(this);
   }
 
-  ILabel target();
+  @Override
+  default ElementKind kind(){
+    return ElementKind.GOTO;
+  }
+
+  Label target();
 }

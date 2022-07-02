@@ -1,10 +1,10 @@
-package dynamilize.base;
-
-import java.util.Arrays;
+package dynamilize;
 
 @SuppressWarnings("unchecked")
-public interface DynamicObject<Self extends DynamicObject<Self>>{
-  DynamicClass<Self> getDyClass();
+public interface DynamicObject<Self>{
+  DynamicClass getDyClass();
+
+  DataPool<Self>.ReadOnlyPool superPoint();
 
   <T> T getVar(String name);
 
@@ -16,10 +16,15 @@ public interface DynamicObject<Self extends DynamicObject<Self>>{
     return res;
   }
 
-  <R> Function<Self, R> getFunc(String name, FunctionType args);
+  <R> Function<Self, R> getFunc(String name, FunctionType type);
+
+  <R> void setFunc(String name, Function<Self, R> func, Class<?>... argTypes);
 
   default <R> R invokeFunc(String name, Object... args){
-    Function<Self, R> res = getFunc(name, FunctionType.inst(Arrays.stream(args).map(Object::getClass).toArray(Class[]::new)));
+    FunctionType type = FunctionType.inst(args);
+    Function<Self, R> res = getFunc(name, type);
+    type.recycle();
+
     if(res == null)
       throw new IllegalHandleException("no such method declared: " + name);
 

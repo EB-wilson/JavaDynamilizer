@@ -1,24 +1,43 @@
+import java.lang.annotation.*;
+
+@AnnoTest(value = {8778493766284947234L, 7876556374L})
 public class Demo{
-  public String name;
+  private static Types t = Types.aS;
+  private static Types[] ts = {Types.aS, Types.bS};
 
-  public Demo(String name){
-    this.name = name;
+  @AnnoTest(9)
+  private String IN;
+
+  Demo o;
+
+  String[] a = {"78", "77"};
+
+  public Demo(final String name, Object data){}
+
+  public static void main(String[] args){
+
   }
 
-  public void run(int i){
+  public void test(){
+    a[0] = "uju";
+
+    int a = (int) o.annotationType();
+
+    System.out.println("i");
+  }
+
+  public Object annotationType(Object... o){
     super.toString();
-    t();
-    long time = System.nanoTime();
-    if(i > time){
-      System.out.println(i);
-    }
-    else System.out.println(time);
-
-    Object t = time;
-    if(t instanceof Long){
-      System.out.println("io");
-    }
+    return 8;
   }
+}
 
-  private void t(){}
+@Target({ElementType.TYPE,ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
+@interface AnnoTest{
+  long[] value();
+}
+
+enum Types{
+  aS, bS, cS
 }

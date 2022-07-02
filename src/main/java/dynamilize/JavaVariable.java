@@ -1,4 +1,4 @@
-package dynamilize.base;
+package dynamilize;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -27,7 +27,7 @@ public class JavaVariable implements IVariable{
 
   @Override
   public void poolAdded(DataPool<?> pool){
-    owner = pool.getOwner();
+    owner = (DynamicObject<?>) pool.getOwner();
   }
 
   @Override

@@ -1,4 +1,4 @@
-package dynamilize.base;
+package dynamilize;
 
 public class Variable implements IVariable{
   private final String name;

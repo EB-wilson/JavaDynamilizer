@@ -5,24 +5,26 @@ import dynamilize.classmaker.ElementVisitor;
 import java.util.HashMap;
 import java.util.Map;
 
-public interface ICondition extends Element{
+public interface ICompare<T> extends Element{
   @Override
   default void accept(ElementVisitor visitor){
-    visitor.visitCondition(this);
+    visitor.visitCompare(this);
   }
 
   @Override
   default ElementKind kind(){
-    return ElementKind.CONDITION;
+    return ElementKind.COMPARE;
   }
 
-  CondCode condCode();
+  ILocal<T> leftNumber();
 
-  ILocal<?> condition();
+  ILocal<T> rightNumber();
 
   Label ifJump();
 
-  enum CondCode{
+  Comparison comparison();
+
+  enum Comparison{
     EQUAL("=="),
     UNEQUAL("!="),
     MORE(">"),
@@ -30,21 +32,21 @@ public interface ICondition extends Element{
     MOREOREQUAL(">="),
     LESSOREQUAL("<=");
 
-    private static final Map<String, CondCode> symbolMap = new HashMap<>();
+    private static final Map<String, Comparison> symbolMap = new HashMap<>();
 
     static{
-      for(CondCode opc: values()){
+      for(Comparison opc: values()){
         symbolMap.put(opc.symbol, opc);
       }
     }
 
     private final String symbol;
 
-    CondCode(String sym){
+    Comparison(String sym){
       this.symbol = sym;
     }
 
-    public static CondCode as(String symbol){
+    public static Comparison as(String symbol){
       return symbolMap.computeIfAbsent(symbol, e -> {throw new IllegalArgumentException("unknown operator symbol: " + e);});
     }
   }

@@ -3,34 +3,27 @@ package dynamilize.classmaker;
 import dynamilize.classmaker.code.*;
 
 import java.util.Map;
-import java.util.Stack;
 
-public abstract class AbstractClassGenerator implements CodeVisitor{
+public abstract class AbstractClassGenerator implements ElementVisitor{
   protected Map<String, ILocal<?>> localMap;
-
-  protected Stack<Code> memberStack = new Stack<>();
 
   @Override
   public void visitClass(IClass<?> clazz){
-    memberStack.push(clazz);
-    for(Code code: clazz.codes()){
-      code.accept(this);
+    for(Element element: clazz.elements()){
+      element.accept(this);
     }
-    memberStack.pop();
   }
 
   @Override
-  public void visitCodeBlock(ICodeBlock block){
-    for(Code code: block.codes()){
-      code.accept(this);
+  public void visitCodeBlock(ICodeBlock<?> block){
+    for(Element element: block.codes()){
+      element.accept(this);
     }
   }
 
   @Override
   public void visitMethod(IMethod<?, ?> method){
-    memberStack.push(method);
-    method.block().accept(this);
-    memberStack.pop();
+    if(method.block() != null) method.block().accept(this);
   }
 
   @Override
@@ -38,5 +31,7 @@ public abstract class AbstractClassGenerator implements CodeVisitor{
     localMap.put(local.name(), local);
   }
 
-  public abstract <T> Class<T> generateClass(ClassInfo<T> classInfo);
+  public abstract byte[] genByteCode(ClassInfo<?> classInfo);
+
+  protected abstract <T> Class<T> generateClass(ClassInfo<T> classInfo);
 }

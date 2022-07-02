@@ -1,11 +1,16 @@
 package dynamilize.classmaker.code;
 
-import dynamilize.classmaker.CodeVisitor;
+import dynamilize.classmaker.ElementVisitor;
 
-public interface ILocal<T> extends Code{
+public interface ILocal<T> extends Element{
   @Override
-  default void accept(CodeVisitor visitor){
+  default void accept(ElementVisitor visitor){
     visitor.visitLocal(this);
+  }
+
+  @Override
+  default ElementKind kind(){
+    return ElementKind.LOCAL;
   }
 
   String name();

@@ -1,4 +1,4 @@
-package dynamilize.base;
+package dynamilize;
 
 public class IllegalHandleException extends RuntimeException{
   public IllegalHandleException(){

@@ -1,26 +1,36 @@
-package dynamilize.base;
+package dynamilize;
 
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedList;
-import java.util.Objects;
+import java.util.List;
 
 public class FunctionType{
+  public static int MAX_RECYCLE = 1024;
+
   private static final Class<?>[] EMPTY = new Class[0];
   private static final LinkedList<FunctionType> RECYCLE_POOL = new LinkedList<>();
 
   private Class<?>[] paramType;
 
-  private FunctionType(Class<?>[] paramType){
+  private FunctionType(Class<?>... paramType){
     this.paramType = paramType;
   }
 
-  public static FunctionType inst(Class<?>[] paramType){
+  public static FunctionType inst(List<Class<?>> paramType){
+    return inst(paramType.toArray(Class[]::new));
+  }
+
+  public static FunctionType inst(Class<?>... paramType){
     if(RECYCLE_POOL.isEmpty()) return new FunctionType(paramType);
     FunctionType res = RECYCLE_POOL.removeFirst();
     res.paramType = paramType;
     return res;
+  }
+
+  public static FunctionType inst(Object... param){
+    return inst(Arrays.stream(param).map(Object::getClass).toArray(Class[]::new));
   }
 
   public static FunctionType from(MethodType type){
@@ -56,6 +66,8 @@ public class FunctionType{
   }
 
   public void recycle(){
+    if(RECYCLE_POOL.size() >= MAX_RECYCLE) return;
+
     paramType = EMPTY;
     RECYCLE_POOL.add(this);
   }

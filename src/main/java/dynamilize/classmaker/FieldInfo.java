@@ -1,14 +1,18 @@
 package dynamilize.classmaker;
 
+import dynamilize.IllegalHandleException;
 import dynamilize.classmaker.code.IClass;
 import dynamilize.classmaker.code.IField;
 
+import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
 import java.lang.reflect.Modifier;
 
-public class FieldInfo<T> extends Member implements IField<T>{
+public class FieldInfo<T> extends AnnotatedMember implements IField<T>{
   IClass<?> owner;
   IClass<T> type;
   Object initial;
+  boolean initialized;
 
   public FieldInfo(ClassInfo<?> owner, int modifiers, String name, IClass<T> type, Object initial){
     super(name);
@@ -20,11 +24,13 @@ public class FieldInfo<T> extends Member implements IField<T>{
     if(initial != null && !Modifier.isStatic(modifiers))
       throw new IllegalArgumentException("cannot initial a constant to non-static field");
 
-    if(!(initial instanceof Number)
+    if(initial != null && (!(initial instanceof Number)
     && !(initial instanceof Boolean)
     && !(initial instanceof String)
-    && !(initial instanceof Character)){
-      throw new IllegalArgumentException("initial must be a primitive type or String");
+    && !(initial instanceof Character)
+    && (!initial.getClass().isArray() || (!initial.getClass().componentType().isPrimitive() && !initial.getClass().componentType().equals(String.class)))
+    && !(initial instanceof Enum<?>))){
+      throw new IllegalArgumentException("initial must be a primitive, String or array, Enum, if array, it type should be primitive, enum or String");
     }
   }
 
@@ -41,5 +47,42 @@ public class FieldInfo<T> extends Member implements IField<T>{
   @Override
   public Object initial(){
     return initial;
+  }
+
+  @Override
+  public void initAnnotations(){
+    if(initialized) return;
+
+    Class<?> clazz = owner().getTypeClass();
+    if(clazz == null)
+      throw new IllegalHandleException("only get annotation object in existed type info");
+
+    try{
+      for(Annotation annotation: clazz.getDeclaredField(name()).getAnnotations()){
+        addAnnotation(new AnnotationDef<>(annotation));
+      }
+    }catch(NoSuchFieldException e){
+      throw new IllegalHandleException(e);
+    }
+
+    initialized = true;
+  }
+
+  @Override
+  public boolean isType(ElementType type){
+    return type == ElementType.FIELD;
+  }
+
+  @Override
+  public <A extends Annotation> A getAnnotation(Class<A> annoClass){
+    Class<?> clazz = owner().getTypeClass();
+    if(clazz == null)
+      throw new IllegalHandleException("only get annotation object in existed type info");
+
+    try{
+      return clazz.getDeclaredField(name()).getAnnotation(annoClass);
+    }catch(NoSuchFieldException e){
+      throw new IllegalHandleException(e);
+    }
   }
 }

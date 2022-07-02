@@ -2,16 +2,18 @@ package dynamilize.classmaker.code;
 
 import dynamilize.classmaker.ElementVisitor;
 
-public interface IReturn<Type> extends Element{
+public interface ILoadConstant<T> extends Element{
   @Override
   default void accept(ElementVisitor visitor){
-    visitor.visitReturn(this);
+    visitor.visitConstant(this);
   }
 
   @Override
   default ElementKind kind(){
-    return ElementKind.RETURN;
+    return ElementKind.LOADCONSTANT;
   }
 
-  ILocal<Type> returnValue();
+  T constant();
+
+  ILocal<T> constTo();
 }

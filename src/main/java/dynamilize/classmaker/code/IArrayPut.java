@@ -2,16 +2,20 @@ package dynamilize.classmaker.code;
 
 import dynamilize.classmaker.ElementVisitor;
 
-public interface IReturn<Type> extends Element{
+public interface IArrayPut<T> extends Element{
   @Override
   default void accept(ElementVisitor visitor){
-    visitor.visitReturn(this);
+    visitor.visitArrayPut(this);
   }
 
   @Override
   default ElementKind kind(){
-    return ElementKind.RETURN;
+    return ElementKind.ARRAYPUT;
   }
 
-  ILocal<Type> returnValue();
+  ILocal<T[]> array();
+
+  ILocal<Integer> index();
+
+  ILocal<T> value();
 }

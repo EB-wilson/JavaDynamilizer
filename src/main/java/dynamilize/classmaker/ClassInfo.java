@@ -1,21 +1,26 @@
 package dynamilize.classmaker;
 
-import dynamilize.base.IllegalHandleException;
-import dynamilize.classmaker.code.Code;
+import dynamilize.IllegalHandleException;
+import dynamilize.classmaker.code.Element;
 import dynamilize.classmaker.code.IClass;
 import dynamilize.classmaker.code.IField;
 import dynamilize.classmaker.code.IMethod;
+import dynamilize.classmaker.code.annotation.AnnotatedElement;
+import dynamilize.classmaker.code.annotation.AnnotationType;
+import dynamilize.classmaker.code.annotation.IAnnotation;
 
-import java.lang.reflect.Modifier;
+import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
+import java.lang.reflect.*;
 import java.util.*;
 
 /**类型标识，用于标记/生成一个类对象，通常有以下两种：
  * <ul>
- *   <li><strong>生成类型标识</strong>生成类型标识在默认情况下（完成类型生成之前）是可变的，用于声明和描述一个新的类型并加载它，是生成类型使用的描述类型
+ *   <li><strong>生成类型标识</strong>生成类型标识在默认情况下（完成类型生成之前）是可变的，用于声明和描述一个新的类型并加载它，是生成一个新的类使用的描述类型
  *   <li><strong>已有类型标识</strong>对已有类型创建的类型标识，不可变，仅用于标记一个已存在的类型以供标记分配和使用
  * </ul>
- * 默认构造的类型标记即为生成类型标识，允许声明方法和字段以及构造函数和静态代码快（cinit块）。请注意，你将需要以类似汇编语言的思路来进行行为描述，如使用goto代替for和if。
- * 尽管已经优化了部分行为，但不可避免的这样做可能很麻烦或者会十分令人疑惑。
+ * 默认构造的类型标记即为生成类型标识，允许声明方法和字段以及构造函数和静态代码快（cinit块）,若生成类型标识完成生成，将转变为对生成的类型的已有类型标识。
+ * <p>你将需要以类似汇编语言的思路来进行行为描述，如使用goto代替for和if.
  *
  * <p>举一个简单的例子：
  * <pre>{@code
@@ -32,42 +37,21 @@ import java.util.*;
  * }
  *
  * 要生成一个等效类型，应做如下描述：
- * ClassInfo<?> classInfo = new ClassInfo(Modifier.PUBLIC, "Demo", null);
- * classInfo.declareField(Modifier.PUBLIC|Modifier.STATIC, "INFO", ClassInfo.STRING_TYPE, "HelloWorld");//public static String INFO = "HelloWorld";
  *
- * ClassInfo<System> sysClass = ClassInfo.asType(System.class);
- * CodeBlock block = classInfo.declareMethod(Modifier.PUBLIC|Modifier.STATIC, "main", ClassInfo.VOID_TYPE, ClassInfo.asType(String[].class));
- * Local<String> str = block.local("str", ClassInfo.STRING_TYPE);
- * Local<String> str1 = block.local("str1", ClassInfo.STRING_TYPE);
- * Local<Long> time = block.local("time", ClassInfo.LONG_TYPE);
- * Local<Integer> num = block.local("num", ClassInfo.INT_TYPE);
- * Local<PrintStream> out = block.local("out", ClassInfo.asType(PrintStream.class));
  *
- * block.getField(classInfo, "INFO", str);
- * block.putConstant(num, 123456789);
- * block.putConstant(str1, "Late");
- * block.invoke(sysClass, "nanoTime", time);
- * block.getField(sysClass, "out", out);
- * Label label = new Label();
- * block.compare(time, "<", num, label);
- * block.invoke(out, "println", null, str);
- * block.returnVoid();
- * block.mark(label);
- * block.invoke(out, "println", null, str1);
- * block.returnVoid();
  * }</pre>
  * 这样的过程是繁琐的，但是也是快速的，跳过编译器产生类文件牺牲了可操作性以换取了类的生成速度，建议将行为描述为模板后再基于模板进行变更以提高开发效率*/
-public class ClassInfo<T> extends Member implements IClass<T>{
-  private static final HashMap<Class<?>, ClassInfo<?>> classMap = new HashMap<>();
+public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
+  private static final Map<Class<?>, ClassInfo<?>> classMap = new HashMap<>();
 
-  private static final String OBJECTTYPEMARK = "Ljava/lang/Object";
+  private static final String OBJECTTYPEMARK = "Ljava/lang/Object;";
   private static final String INIT = "<init>";
-  private static final String CINIT = "<cinit>";
+  private static final String CINIT = "<clinit>";
 
   private static final int CLASS_ACCESS_MODIFIERS =
       Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE |
       Modifier.FINAL | Modifier.STATIC | Modifier.INTERFACE |
-      Modifier.ABSTRACT;
+      Modifier.ABSTRACT | 8192/*annotation*/ | 16384/*enum*/;
 
   private static final int METHOD_ACCESS_MODIFIERS =
       Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE |
@@ -91,13 +75,15 @@ public class ClassInfo<T> extends Member implements IClass<T>{
 
   ClassInfo<? super T> superClass;
   List<ClassInfo<?>> interfaces;
-  List<Code> codes;
+  List<Element> elements;
 
   Map<String, IField<?>> fieldMap;
   Map<String, IMethod<?, ?>> methodMap;
 
-  /**对{@link Object}的类型标识*/
-  public static final ClassInfo<Object> OBJECT_TYPE = new ClassInfo<>(Object.class);
+  private ClassInfo<T[]> arrayType;
+  private final ClassInfo<?> componentType;
+
+  private AnnotationType<? extends Annotation> annotationType;
 
   /**对int的类型标识，泛型引用封装数据类型，本身引用仍为基本数据类型*/
   public static final ClassInfo<Integer> INT_TYPE = new ClassInfo<>(int.class);
@@ -126,25 +112,45 @@ public class ClassInfo<T> extends Member implements IClass<T>{
   /**对void的类型标识，泛型引用封装数据类型，本身引用仍为基本数据类型*/
   public static final ClassInfo<Void> VOID_TYPE = new ClassInfo<>(void.class);
 
+  /**对{@link Object}的类型标识*/
+  public static final ClassInfo<Object> OBJECT_TYPE = new ClassInfo<>(Object.class);
+
   /**对{@link String}的类型标识*/
   public static final ClassInfo<String> STRING_TYPE = asType(String.class);
+
+  /**对{@link Class}的类型标识*/
+  @SuppressWarnings("rawtypes")
+  public static final ClassInfo<Class> CLASS_TYPE = asType(Class.class);
+
+  boolean initialized;
+
+  final boolean isPrimitive;
 
   /**创建一个类型标识用于标记类型，若这个目标类型已经被标记过则会返回那个已有对象标识
    *
    * @param clazz 要用于标记的类对象*/
   @SuppressWarnings("unchecked")
   public static <T> ClassInfo<T> asType(Class<T> clazz){
-    return (ClassInfo<T>) classMap.computeIfAbsent(clazz, c -> {
-      ClassInfo<T> res = new ClassInfo<>(
-          c.getModifiers(),
-          c.getName(),
-          c.getSuperclass().equals(Object.class)? OBJECT_TYPE: asType(((Class<T>)c).getSuperclass()),
-          Arrays.stream(c.getInterfaces()).map(ClassInfo::asType).toArray(ClassInfo[]::new)
-      );
-      res.clazz = (Class<T>) c;
+    ClassInfo<T> res = (ClassInfo<T>) classMap.get(clazz);
 
-      return res;
-    });
+    if(res == null){
+      res = clazz.isArray()? new ClassInfo<>(asType(clazz.componentType())): new ClassInfo<>(
+          clazz.getModifiers(),
+          clazz.getName(),
+          clazz.getSuperclass() == null? null: clazz.getSuperclass().equals(Object.class)? OBJECT_TYPE : asType(clazz.getSuperclass()),
+          Arrays.stream(clazz.getInterfaces()).map(ClassInfo::asType).toArray(ClassInfo[]::new)
+      );
+      res.clazz = clazz;
+
+      classMap.put(clazz, res);
+
+      if(clazz.isAnnotation())
+        res.asAnnotation(null);
+
+      res.initAnnotations();
+    }
+
+    return res;
   }
 
   /**不应该从外部调用此方法，该方法仅用于传入java基础类型的类对象获得其类型标识，若传入的类型不是基本java类型或者{@link Object}则抛出异常
@@ -155,14 +161,24 @@ public class ClassInfo<T> extends Member implements IClass<T>{
     if(!primitive.isPrimitive() && primitive != Object.class) throw new IllegalArgumentException(primitive + " was not a primitive class");
 
     interfaces = List.of();
-    codes = List.of();
+    elements = List.of();
+
+    clazz = primitive;
 
     if(primitive == Object.class){
       setModifiers(Modifier.PUBLIC);
 
       realName = OBJECTTYPEMARK;
+
+      fieldMap = new HashMap<>();
+      methodMap = new HashMap<>();
+
+      isPrimitive = false;
     }
     else{
+      fieldMap = Map.of();
+      methodMap = Map.of();
+
       setModifiers(Modifier.PUBLIC|Modifier.FINAL);
 
       if(primitive == int.class) realName = "I";
@@ -174,12 +190,16 @@ public class ClassInfo<T> extends Member implements IClass<T>{
       else if(primitive == char.class) realName = "C";
       else if(primitive == double.class) realName = "D";
       else if(primitive == void.class) realName = "V";
+
+      isPrimitive = true;
     }
 
-    clazz = primitive;
+    componentType = null;
+
+    classMap.put(primitive, this);
   }
 
-  /**用传入的各属性构建一个生成类型标识的实例，用于动态生成类
+  /**构建一个生成类型标识的实例，用于动态生成类
    *
    * @param modifiers 类的修饰符flags描述位集
    * @param name 类的全限定名称
@@ -204,11 +224,84 @@ public class ClassInfo<T> extends Member implements IClass<T>{
     this.superClass = superClass;
     this.interfaces = List.of(interfaces);
 
-    codes = new ArrayList<>();
+    elements = new ArrayList<>();
     fieldMap = new HashMap<>();
     methodMap = new HashMap<>();
 
-    realName = "L" + name.replace(".", "/");
+    realName = "L" + name.replace(".", "/") + ";";
+
+    isPrimitive = false;
+    componentType = null;
+  }
+
+  private ClassInfo(ClassInfo<?> comp){
+    super(comp.name() + "[]");
+
+    superClass = OBJECT_TYPE;
+    elements = List.of();
+    methodMap = Map.of();
+    fieldMap = Map.of();
+
+    realName = "[" + comp.realName;
+
+    isPrimitive = false;
+    componentType = comp;
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public ClassInfo<T[]> asArray(){
+    ClassInfo<T[]> res = arrayType;
+    if(res == null){
+      if(clazz != null){
+        res = arrayType = (ClassInfo<T[]>) asType(clazz.arrayType());
+      }
+      else res = arrayType = new ClassInfo<>(this);
+    }
+
+    res.isExistedClass(); //尝试初始化数组类型
+
+    return res;
+  }
+
+  @Override
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public <A extends Annotation> AnnotationType<A> asAnnotation(Map<String, Object> defaultAttributes){
+    if(defaultAttributes == null) defaultAttributes = Map.of();
+    checkAnnotation(defaultAttributes);
+
+    Map<String, Object> map = defaultAttributes;
+    return
+        annotationType != null? (AnnotationType<A>) annotationType : (AnnotationType<A>) (annotationType = new AnnotationType<A>(){
+          final Map<String,Object> def = Map.copyOf(map);
+
+          @Override
+          public IClass<A> typeClass(){
+            return (IClass<A>) ClassInfo.this;
+          }
+
+          @Override
+          public Map<String, Object> defaultValues(){
+            return def;
+          }
+
+          @Override
+          public IAnnotation<A> annotateTo(AnnotatedElement element, Map<String, Object> attributes){
+            IAnnotation<A> anno = new AnnotationDef(this, element, attributes);
+            element.addAnnotation(anno);
+            return anno;
+          }
+        });
+  }
+
+  @Override
+  public boolean isArray(){
+    return componentType != null;
+  }
+
+  @Override
+  public IClass<?> componentType(){
+    return componentType;
   }
 
   /**返回标记的类型，如果尚未完成生成，则返回null
@@ -219,7 +312,12 @@ public class ClassInfo<T> extends Member implements IClass<T>{
     return isExistedClass()? clazz: null;
   }
 
-  /**获取此类在字节码中的真实名称，例如：java.lang.Object -> Ljava/lang/Object
+  @Override
+  public boolean isAnnotation(){
+    return annotationType != null;
+  }
+
+  /**获取此类在字节码中的真实名称，例如：java.lang.Object -> Ljava/lang/Object;
    * <p>特别的，对于基本数据类型：
    * <pre>{@code
    * int     -> I
@@ -239,6 +337,14 @@ public class ClassInfo<T> extends Member implements IClass<T>{
     return realName;
   }
 
+  /**获取此类型的字节码类型标识符，即真实名称省去首位的符号L，例如java.lang.Object -> java/lang/Object
+   *
+   * @return 类型的字节标识名称
+   * @see ClassInfo#realName() */
+  public String internalName(){
+    return (realName.startsWith("L")? realName.replaceFirst("L", ""): realName).replace(";", "");
+  }
+
   /**使用给出的类生成器构建此类型标识声明的类对象，此类型标识应当是可用的，请参阅{@link ClassInfo#checkGen()}
    *
    * @param generator 用于构建类型使用的类生成器
@@ -248,22 +354,71 @@ public class ClassInfo<T> extends Member implements IClass<T>{
   public Class<T> generate(AbstractClassGenerator generator){
     checkGen();
 
-    clazz = generator.generateClass(this);
-    return clazz;
+    return clazz = generator.generateClass(this);
   }
 
-  /**当前此类型标记的类对象是否存在，这在已有类型标识总是返回true，对于生成类型标识，若已完成类对象生成则返回true,否则返回false
+  public void initAnnotations(){
+    if(!initialized){
+      for(Annotation annotation: clazz.getAnnotations()){
+        addAnnotation(new AnnotationDef<>(annotation));
+      }
+      initialized = true;
+    }
+
+    for(IField<?> field: fieldMap.values()){
+      field.initAnnotations();
+    }
+
+    for(IMethod<?, ?> method: methodMap.values()){
+      method.initAnnotations();
+    }
+  }
+
+  /**此类型标识是否为已有类型标识
    *
-   * @return 若标记的类型已加载*/
+   * @return 若标记的类已被JVM加载*/
+  @SuppressWarnings({"unchecked"})
+  @Override
   public boolean isExistedClass(){
-    return clazz != null;
+    if(clazz != null) return true;
+
+    if(componentType != null && componentType.isExistedClass()){
+      clazz = (Class<T>) componentType.clazz.arrayType();
+      return true;
+    }
+
+    return false;
+  }
+
+  @Override
+  public boolean isPrimitive(){
+    return isPrimitive;
+  }
+
+  protected void initMethods(){
+    for(Method method: clazz.getDeclaredMethods()){
+      getMethod(
+          ClassInfo.asType(method.getReturnType()),
+          method.getName(),
+          Arrays.stream(method.getParameterTypes()).map(ClassInfo::asType).toArray(IClass[]::new)
+      );
+    }
+  }
+
+  protected void initFields(){
+    for(Field field: clazz.getDeclaredFields()){
+      getField(
+          ClassInfo.asType(field.getType()),
+          field.getName()
+      );
+    }
   }
 
   @Override
   @SuppressWarnings("unchecked")
   //utilMethods
   public <R> MethodInfo<T, R> getMethod(IClass<R> returnType, String name, IClass<?>... args){
-    return (MethodInfo<T, R>) methodMap.computeIfAbsent(pack(returnType, name, args), e -> {
+    return (MethodInfo<T, R>) methodMap.computeIfAbsent(pack(name, args), e -> {
       if(!isExistedClass())
         throw new IllegalHandleException("this class info is not a existed type mark, you have to declare method then get it");
 
@@ -277,24 +432,27 @@ public class ClassInfo<T> extends Member implements IClass<T>{
         }
       }
 
-      int flags = Modifier.PUBLIC;
+      Method met = null;
       if(stat){
         try{
-          flags = clazz.getDeclaredMethod(name, paramClass).getModifiers();
+          met = clazz.getDeclaredMethod(name, paramClass);
         }catch(NoSuchMethodException ex){
           throw new IllegalHandleException(ex);
         }
       }
 
-      return new MethodInfo<>(this, flags, name, returnType, args);
+      MethodInfo<T, R> method = met == null? new MethodInfo<>(this, Modifier.PUBLIC, name, returnType, Parameter.trans(args)):
+          new MethodInfo<>(this, met.getModifiers(), name, returnType, Parameter.asParameter(met.getParameters()));
+      if(met != null) method.initAnnotations();
+
+      return method;
     });
   }
-
+  //utilMethods
   @Override
   @SuppressWarnings("unchecked")
-  //utilMethods
-  public <R> MethodInfo<T, R> getConstructor(IClass<?>... args){
-    return (MethodInfo<T, R>) methodMap.computeIfAbsent(pack(VOID_TYPE, INIT, args), e -> {
+  public MethodInfo<T, Void> getConstructor(IClass<?>... args){
+    return (MethodInfo<T, Void>) methodMap.computeIfAbsent(pack(INIT, args), e -> {
       if(!isExistedClass())
         throw new IllegalHandleException("this class info is not a existed type mark, you have to declare method then get it");
 
@@ -308,16 +466,20 @@ public class ClassInfo<T> extends Member implements IClass<T>{
         }
       }
 
-      int flags = Modifier.PUBLIC;
+      Constructor<?> cstr = null;
       if(stat){
         try{
-          flags = clazz.getDeclaredConstructor(paramClass).getModifiers();
+          cstr = clazz.getDeclaredConstructor(paramClass);
         }catch(NoSuchMethodException ex){
           throw new IllegalHandleException(ex);
         }
       }
 
-      return new MethodInfo<>(this, flags, INIT, VOID_TYPE, args);
+      MethodInfo<?, ?> res = cstr == null? new MethodInfo<>(this, Modifier.PUBLIC, INIT, VOID_TYPE, Parameter.trans(args)):
+          new MethodInfo<>(this, cstr.getModifiers(), INIT, VOID_TYPE, Parameter.asParameter(cstr.getParameters()));
+      if(cstr != null) res.initAnnotations();
+
+      return res;
     });
   }
 
@@ -335,18 +497,20 @@ public class ClassInfo<T> extends Member implements IClass<T>{
         throw new IllegalHandleException(ex);
       }
 
-      return new FieldInfo<>(this, flags, name, type, null);
+      FieldInfo<Type> field = new FieldInfo<>(this, flags, name, type, null);
+      type.initAnnotations();
+      return field;
     });
   }
 
   @Override
   public boolean isAssignableFrom(IClass<?> target){
-    if(!isExistedClass() && target.getTypeClass() != null && clazz.isAssignableFrom(target.getTypeClass())){
+    if(isExistedClass() && target.isExistedClass() && clazz.isAssignableFrom(target.getTypeClass())){
       return true;
     }
 
     IClass<?> ty = target;
-    while(ty.superClass() != null){
+    while(ty != null){
       if(equals(ty)) return true;
       ty = ty.superClass();
     }
@@ -354,7 +518,7 @@ public class ClassInfo<T> extends Member implements IClass<T>{
     return false;
   }
 
-  private static String pack(IClass<?> returnType, String name, IClass<?>... args){
+  private static String pack(String name, IClass<?>... args){
     StringBuilder builder = new StringBuilder(name);
     builder.append("(");
     for(IClass<?> arg: args){
@@ -366,7 +530,7 @@ public class ClassInfo<T> extends Member implements IClass<T>{
     String type = builder.toString();
     if(type.endsWith(",")) type = type.substring(0, type.length() - 1);
 
-    return type + ")" + returnType.realName();
+    return type + ")";
   }
 
   /**声明一个<cinit>块，返回块体声明对象，若块已存在则返回已存在的块体
@@ -378,43 +542,48 @@ public class ClassInfo<T> extends Member implements IClass<T>{
     return cinit != null? cinit: (cinit = declareMethod(Modifier.STATIC, CINIT, VOID_TYPE));
   }
 
-  /**声明一个拥有相应参数的构造函数，返回构造函数体声明对象
+  /**声明一个构造函数，返回构造函数体声明对象
    *
    * @param modifiers 此构造函数的修饰符flags标识，不可为static
-   * @param paramTypes 构造函数的参数类型标识
+   * @param parameters 构造函数的参数类型标识
    * @return 构造函数方法体的声明对象
    *
    * @throws IllegalArgumentException 若modifiers是包含static的或者不合法
    * @throws IllegalHandleException 若此类型声明已经生成为类或者是类型标识*/
-  public CodeBlock<Void> declareConstructor(int modifiers, ClassInfo<?>... paramTypes){
+  public CodeBlock<Void> declareConstructor(int modifiers, Parameter<?>... parameters){
     if(Modifier.isStatic(modifiers))
       throw new IllegalArgumentException("constructor cannot be static");
 
-    return declareMethod(modifiers, INIT, VOID_TYPE, paramTypes);
+    return declareMethod(modifiers, INIT, VOID_TYPE, parameters);
   }
 
-  /**声明一个具有给出名称和参数的方法，并返回方法块的声明对象
+  /**声明一个方法，并返回方法块的声明对象
    *
    * @param modifiers 方法的修饰符flags标识
    * @param name 方法的名称
    * @param returnType 方法的返回值类型
-   * @param paramTypes 方法参数类型列表
+   * @param parameters 方法参数类型列表
    *
    * @throws IllegalArgumentException 若modifiers不合法
    * @throws IllegalHandleException 若此类型声明已经生成为类或者是类型标识*/
   @SuppressWarnings("unchecked")
-  public <R> CodeBlock<R> declareMethod(int modifiers, String name, ClassInfo<R> returnType, ClassInfo<?>... paramTypes){
+  public <R> CodeBlock<R> declareMethod(int modifiers, String name, ClassInfo<R> returnType, Parameter<?>... parameters){
     checkGen();
     checkModifiers(modifiers, METHOD_ACCESS_MODIFIERS);
 
-    MethodInfo<T, R> method = (MethodInfo<T, R>) methodMap.computeIfAbsent(pack(returnType, name, paramTypes), e -> new MethodInfo<>(this, modifiers, name, returnType, paramTypes));
-    codes.add(method);
+    if(Modifier.isAbstract(modifiers) && Modifier.isStatic(modifiers))
+      throw new IllegalArgumentException("conflicted modifiers " + Modifier.toString(modifiers));
+
+    MethodInfo<T, R> method = (MethodInfo<T, R>) methodMap.computeIfAbsent(
+        pack(name, Arrays.stream(parameters).map(Parameter::getType).toArray(IClass[]::new)),
+        e -> new MethodInfo<>(this, modifiers, name, returnType, parameters));
+    elements.add(method);
 
     return method.block();
   }
 
-  /**声明一个具有给出的名称和类型的字段，若需要给字段赋予默认常量值，则此字段应当为static，否则你应当在构造函数中初始化对象的成员字段默认值
-   * <p>分配的默认值只能是下列基本类型的字面常量
+  /**声明一个字段，若需要给字段赋予默认常量值，则此字段应当为static，否则你应当在此类型的构造函数中初始化对象的成员字段默认值
+   * <p>分配的默认值只能是下列基本类型或由其构成的数组类型的字面常量
    * <pre>{@code
    *   String  -> "anythings"
    *   int     -> -2147483648 ~ 2147483647
@@ -424,7 +593,7 @@ public class ClassInfo<T> extends Member implements IClass<T>{
    *   short   -> -32768 ~ 32767
    *   long    -> -9223372036854775808L ~ 9223372036854775807L
    *   double  -> -1.7976931348623157E308D ~ 1.7976931348623157E308D
-   *   char    -> '\ u0000' ~ '\ uFFFF'
+   *   char    -> 'u0000' ~ 'uFFFF'
    * }</pre>
    *
    * @param modifiers 字段的修饰符flags标识
@@ -432,18 +601,24 @@ public class ClassInfo<T> extends Member implements IClass<T>{
    * @param type 字段的类型
    * @param initial 字段的默认初始值，可以为空，只能按规则分配
    *
-   * @throws IllegalArgumentException 若modifiers不合法或者给出的初始化常量值不合法
+   * @throws IllegalArgumentException 若modifiers不合法或者给出的初始化常量值不合法，请参见{@link ClassInfo#checkModifiers(int, int)}
    * @throws IllegalHandleException 若此类型声明已经生成为类或者是类型标识*/
   @SuppressWarnings("unchecked")
-  public <Type> FieldInfo<Type> declareField(int modifiers, String name, ClassInfo<Type> type, Object initial){
+  public <F> FieldInfo<F> declareField(int modifiers, String name, ClassInfo<F> type, F initial){
     checkGen();
     checkModifiers(modifiers, FIELD_ACCESS_MODIFIERS);
-    FieldInfo<Type> field = (FieldInfo<Type>) fieldMap.computeIfAbsent(name, e -> new FieldInfo<>(this, modifiers, name, type, initial));
-    codes.add(field);
+    FieldInfo<F> field = (FieldInfo<F>) fieldMap.computeIfAbsent(name, e -> new FieldInfo<>(this, modifiers, name, type, initial));
+    elements.add(field);
+
+    if(initial != null && cinit == null
+        && (field.initial() instanceof Array || field.initial() instanceof Enum<?>)){
+      cinit = declareCinit();
+    }
+
     return field;
   }
 
-  /**检查修饰符是否存在冲突，以及修饰符是否可用
+  /**检查修饰符之间是否存在冲突，以及修饰符是否可用，例如public, protected和private三者只能有其一
    *
    * @param modifiers 待检查的修饰符
    * @param access 可以接收的修饰符位集
@@ -452,7 +627,8 @@ public class ClassInfo<T> extends Member implements IClass<T>{
     if(Modifier.isPublic(modifiers) && (modifiers & (Modifier.PROTECTED | Modifier.PRIVATE)) != 0
     || Modifier.isProtected(modifiers) && (modifiers & (Modifier.PUBLIC | Modifier.PRIVATE)) != 0
     || Modifier.isPrivate(modifiers) && (modifiers & (Modifier.PUBLIC | Modifier.PROTECTED)) != 0
-    || (modifiers & (Modifier.INTERFACE | Modifier.ABSTRACT)) != 0 && (modifiers & (Modifier.FINAL | Modifier.STATIC | Modifier.NATIVE)) != 0
+    || Modifier.isAbstract(modifiers) && (modifiers & (Modifier.FINAL | Modifier.NATIVE)) != 0
+    || Modifier.isInterface(modifiers) && (modifiers & Modifier.FINAL) != 0
     || Modifier.isFinal(modifiers) && Modifier.isVolatile(modifiers))
       throw new IllegalArgumentException("modifiers was conflicted， modifiers: " + Modifier.toString(modifiers));
 
@@ -460,7 +636,7 @@ public class ClassInfo<T> extends Member implements IClass<T>{
       throw new IllegalArgumentException("unexpected modifiers with " + Modifier.toString(modifiers));
   }
 
-  /**检查当前类生成状态，若不处于可修改状态则跑出异常，可修改状态应满足以下条件：
+  /**检查当前类生成状态，若不处于可修改状态则抛出异常，可修改状态应满足以下条件：
    * <ul>
    *   <li><strong>此类型标识不是现有类型标识</strong>
    *   <li><strong>此类型标识尚未完成类的生成与类对象加载</strong>
@@ -470,6 +646,31 @@ public class ClassInfo<T> extends Member implements IClass<T>{
   public void checkGen(){
     if(isExistedClass())
       throw new IllegalHandleException(this + " was a generated object or type mark, can not handle it");
+  }
+
+  private void checkAnnotation(Map<String, Object> defAttributes){
+    if((isExistedClass() && !clazz.isAnnotation()))
+      throw new IllegalHandleException("clazz " + this + " was not a annotation type");
+
+    Map<String, Object> map = new HashMap<>(defAttributes);
+    for(Element element: elements()){
+      if(!(element instanceof IMethod<?,?> met) || !Modifier.isAbstract(met.modifiers()))
+        throw new IllegalHandleException("clazz " + this + " was not a annotation type");
+
+      IClass<?> type = met.returnType();
+      if((!isReferenceType(type) && !type.equals(STRING_TYPE))
+      || (type.isArray() && (!isReferenceType(type.componentType()) && !type.componentType().equals(STRING_TYPE))))
+        throw new IllegalHandleException("unsupported return type in annotation: " + met);
+
+      Object val = map.remove(met.name());
+      if(!asType(val.getClass()).equals(type))
+        throw new IllegalHandleException("attribute \"" + met.name() + "\" type was " + type + ", but given default value is " + val.getClass() + ", they should be same");
+    }
+    if(!map.isEmpty()) throw new IllegalArgumentException("unknown default attribute declaring: " + map);
+  }
+
+  private boolean isReferenceType(IClass<?> type){
+    return type.realName().startsWith("L");
   }
 
   @Override
@@ -484,8 +685,8 @@ public class ClassInfo<T> extends Member implements IClass<T>{
   }
 
   @Override
-  public List<Code> codes(){
-    return codes;
+  public List<Element> elements(){
+    return elements;
   }
 
   @Override
@@ -503,5 +704,19 @@ public class ClassInfo<T> extends Member implements IClass<T>{
   @Override
   public int hashCode(){
     return Objects.hash(clazz, realName);
+  }
+
+  @Override
+  public boolean isType(ElementType type){
+    return type == (isAnnotation()? ElementType.ANNOTATION_TYPE: ElementType.TYPE);
+  }
+
+  @Override
+  public <A extends Annotation> A getAnnotation(Class<A> annoClass){
+    Class<?> clazz = getTypeClass();
+    if(clazz == null)
+      throw new IllegalHandleException("only get annotation object in existed type info");
+
+    return clazz.getAnnotation(annoClass);
   }
 }

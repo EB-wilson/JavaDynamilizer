@@ -1,11 +1,16 @@
 package dynamilize.classmaker.code;
 
-import dynamilize.classmaker.CodeVisitor;
+import dynamilize.classmaker.ElementVisitor;
 
-public interface IPutField<S, T extends S> extends Code{
+public interface IPutField<S, T extends S> extends Element{
   @Override
-  default void accept(CodeVisitor visitor){
+  default void accept(ElementVisitor visitor){
     visitor.visitPutField(this);
+  }
+
+  @Override
+  default ElementKind kind(){
+    return ElementKind.FIELDSET;
   }
 
   ILocal<?> inst();
