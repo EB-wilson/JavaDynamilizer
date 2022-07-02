@@ -7,9 +7,6 @@ import dynamilize.classmaker.code.IMethod;
 import dynamilize.classmaker.code.annotation.AnnotationType;
 import org.objectweb.asm.Opcodes;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -65,18 +62,6 @@ public abstract class DynamicMaker{
     }){
       @Override
       protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces, DynamicClass dynamicClass){
-        byte[] bytes = generator.genByteCode(makeClassInfo(baseClass, interfaces, dynamicClass));
-
-        File cla = new File("temp/Output.class");
-        try{
-          cla.getParentFile().mkdirs();
-          FileOutputStream o = new FileOutputStream(cla, false);
-          o.write(bytes);
-          o.flush();
-        }catch(IOException e){
-          throw new RuntimeException(e);
-        }
-
         return makeClassInfo(baseClass, interfaces, dynamicClass).generate(generator);
       }
     };
@@ -109,7 +94,6 @@ public abstract class DynamicMaker{
       FunctionType type = FunctionType.inst(cstr.getParameterTypes());
 
       T inst = (T) constructors.computeIfAbsent(clazz, e -> new HashMap<>()).computeIfAbsent(type, t -> {
-        helper.setAccess(cstr);
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         try{
           return lookup.unreflectConstructor(cstr);
