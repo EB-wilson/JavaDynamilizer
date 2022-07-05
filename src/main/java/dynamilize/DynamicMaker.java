@@ -42,7 +42,7 @@ public abstract class DynamicMaker{
 
   private final JavaHandleHelper helper;
 
-  private final HashMap<Class<?>, Class<?>> pool = new HashMap<>();
+  private final HashMap<ClassImplements<?>, Class<?>> pool = new HashMap<>();
   private final HashMap<Class<?>, HashMap<FunctionType, MethodHandle>> constructors = new HashMap<>();
 
   protected DynamicMaker(JavaHandleHelper helper){
@@ -104,7 +104,6 @@ public abstract class DynamicMaker{
       type.recycle();
 
       pool.setOwner(inst);
-      dynamicClass.initInstance(pool);
 
       return inst;
     }catch(Throwable e){
@@ -124,7 +123,7 @@ public abstract class DynamicMaker{
   }
 
   protected <T> DataPool<T> genPool(Class<? extends T> base, DynamicClass dynamicClass){
-    DataPool<T> basePool = new DataPool<>(null), pool = new DataPool<>(basePool);
+    DataPool<T> basePool = new DataPool<>(null);
     MethodHandles.Lookup lookup = MethodHandles.lookup();
 
     for(Method method: base.getDeclaredMethods()){
@@ -156,14 +155,18 @@ public abstract class DynamicMaker{
       basePool.add(new JavaVariable(field));
     }
 
-    DataPool<?> currPool = pool;
+    Stack<DynamicClass> classStack = new Stack<>();
     DynamicClass currClass = dynamicClass;
 
     while(currClass != null){
-      currClass.initInstance(currPool);
-      currPool = new DataPool<>(currPool);
-
+      classStack.push(currClass);
       currClass = currClass.superDyClass();
+    }
+
+    DataPool<T> pool = basePool;
+    while(!classStack.empty()){
+      pool = new DataPool<>(pool);
+      classStack.pop().initInstance(pool);
     }
 
     return pool;
@@ -171,7 +174,7 @@ public abstract class DynamicMaker{
 
   @SuppressWarnings("unchecked")
   public <T> Class<? extends T> getDynamicBase(Class<T> base, Class<?>[] interfaces, DynamicClass dynamicClass){
-    return (Class<? extends T>) pool.computeIfAbsent(base, e -> generateClass(base, interfaces, dynamicClass));
+    return (Class<? extends T>) pool.computeIfAbsent(new ClassImplements<>(base, interfaces), e -> generateClass(base, interfaces, dynamicClass));
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -456,5 +459,29 @@ public abstract class DynamicMaker{
 
   @Target(ElementType.TYPE)
   @Retention(RetentionPolicy.RUNTIME)
-  protected @interface DynamicType{}
+  public @interface DynamicType{}
+
+  private static class ClassImplements<T>{
+    final Class<T> base;
+    final Class<?>[] interfaces;
+
+    public ClassImplements(Class<T> base, Class<?>[] interfaces){
+      this.base = base;
+      this.interfaces = interfaces;
+    }
+
+    @Override
+    public boolean equals(Object o){
+      if(this == o) return true;
+      if(!(o instanceof ClassImplements<?> that)) return false;
+      return base.equals(that.base) && Arrays.equals(interfaces, that.interfaces);
+    }
+
+    @Override
+    public int hashCode(){
+      int result = Objects.hash(base);
+      result = 31*result + Arrays.hashCode(interfaces);
+      return result;
+    }
+  }
 }

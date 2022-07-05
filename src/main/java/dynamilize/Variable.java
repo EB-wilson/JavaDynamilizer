@@ -6,9 +6,15 @@ public class Variable implements IVariable{
 
   private Object value;
 
-  public Variable(String name, boolean isConst){
+  public Variable(String name){
     this.name = name;
-    this.isConst = isConst;
+    this.isConst = false;
+  }
+
+  public Variable(String name, Object value){
+    this.name = name;
+    this.value = value;
+    this.isConst = true;
   }
 
   @Override

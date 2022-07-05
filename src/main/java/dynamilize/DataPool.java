@@ -1,6 +1,7 @@
 package dynamilize;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 @SuppressWarnings({"unchecked"})
 public class DataPool<Owner>{
@@ -29,11 +30,18 @@ public class DataPool<Owner>{
   }
 
   public void set(String name, Function<Owner, ?> function, Class<?>... argsType){
-    Objects.requireNonNullElseGet(getFunctions(name), () -> funcPool.computeIfAbsent(name, n -> new HashMap<>())).put(FunctionType.inst(argsType), function);
+    funcPool.computeIfAbsent(name, n -> new HashMap<>()).put(FunctionType.inst(argsType), function);
   }
 
   public void set(String name, Object value){
-    Objects.requireNonNullElseGet(getVariable(name), () -> varPool.computeIfAbsent(name, n -> new Variable(name, false))).set(value);
+    varPool.computeIfAbsent(name, Variable::new).set(value);
+  }
+
+  public void setConst(String name, Object value){
+    if(varPool.containsKey(name))
+      throw new IllegalHandleException("cannot set existed variable to const");
+
+    varPool.put(name, new Variable(name, value));
   }
 
   public void add(IVariable var){
@@ -69,13 +77,22 @@ public class DataPool<Owner>{
     return new ReadOnlyPool();
   }
 
-  class ReadOnlyPool{
+  public class ReadOnlyPool{
+    private ReadOnlyPool(){}
+
     public <T> T get(String name){
       return DataPool.this.get(name);
     }
 
     public <R> Function<Owner, R> select(String name, FunctionType type){
       return DataPool.this.select(name, type);
+    }
+
+    public <R> R invokeFunc(String name, Object... args){
+      FunctionType type = FunctionType.inst(args);
+      R res = (R) select(name, type).invoke(owner, args);
+      type.recycle();
+      return res;
     }
   }
 }

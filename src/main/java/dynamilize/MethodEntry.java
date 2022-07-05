@@ -15,8 +15,11 @@ public class MethodEntry{
   private final FunctionType type;
   private final Function<?, ?> defFunc;
 
+  private final boolean isFinal;
+
   public MethodEntry(Method invokeMethod){
     this.name = invokeMethod.getName();
+    this.isFinal = Modifier.isFinal(invokeMethod.getModifiers());
 
     if(!Modifier.isStatic(invokeMethod.getModifiers()))
       throw new IllegalHandleException("cannot assign a non-static method to function");
@@ -81,6 +84,10 @@ public class MethodEntry{
 
   public String getName(){
     return name;
+  }
+
+  public boolean modifiable(){
+    return !isFinal;
   }
 
   public <S, R> Function<S, R> getFunction(){

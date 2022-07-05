@@ -1,32 +1,118 @@
 package dynamilize;
 
+import dynamilize.annotation.Exclude;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
 
+/**保存动态对象行为信息的动态类型，描述了对象的共有行为和变量信息。
+ * <p>在{@link DynamicMaker}的构造实例方法里使用动态类型构造动态对象，动态对象会具有其类型描述的行为，对于基类与动态类中描述的同一方法会正常的处理覆盖关系。
+ * <p>不同于为对象设置的函数，在动态类中描述的方法，对于所有此类的实例都是共用的，即：
+ * <ul>
+ * <li><strong>当对象的动态类型的某一方法发生变更时，对象的此方法行为也会改变，且变更会即时生效</strong>
+ * <li><strong>当动态类的超类的方法行为发生变更时，若类的行为中引用了超类方法，则类的行为会随之改变</strong>
+ * <p><strong>仅在动态对象的方法来自动态类描述的行为时，上述变更才会生效</strong>
+ * </ul>
+ * <p>描述动态类的行为，需要使用一个类作为{@linkplain DynamicClass#visitClass(Class) 行为样版}，以增量模式编辑类型行为，方法和默认变量只能新增/变更，不可删除
+ * <pre>{@code
+ * 下面是一个简单的样例:
+ * public class Template{
+ *   public static String str = "string0";
+ *
+ *   public static void method(@This final DynamicObject self, String arg0){
+ *     System.out.println(self.getVar(arg0));
+ *   }
+ * }
+ *
+ * 引用：
+ * DynamicClass dyClass = DynamicClass.get("Sample");
+ * dyClass.visitClass(Template.class);
+ * DynamicObject dyObject = DynamicMaker.getDefault().newInstance(dyClass);
+ * dyObject.invokeFunc("method", "str");
+ *
+ * >>> string0
+ * }</pre>
+ *
+ * @see DynamicMaker#newInstance(Class, Class[], DynamicClass, Object...)
+ * @see DynamicMaker#newInstance(DynamicClass)
+ * @see DynamicMaker#newInstance(Class[], DynamicClass)
+ * @see DynamicMaker#newInstance(Class, DynamicClass, Object...)
+ * */
 public class DynamicClass{
+  /**保存了所有动态类的实例，通常情况下动态类型只有在主动删除时才会退出池，对于废弃的类，请切记使用{@link DynamicClass#delete()}删除，否则会造成内存泄漏*/
+  private final static HashMap<String, DynamicClass> classPool = new HashMap<>();
+
+  /**类型的唯一限定名称*/
   private final String name;
 
-  protected DynamicClass superDyClass;
+  private final DynamicClass superDyClass;
 
-  protected Map<String, Map<FunctionType, MethodEntry>> methods = new HashMap<>();
-  protected Map<String, Initializer> varInit = new HashMap<>();
+  private final Map<String, Map<FunctionType, MethodEntry>> methods = new HashMap<>();
+  private final Map<String, Initializer<?>> varInit = new HashMap<>();
 
-  public DynamicClass(String name){
-    this.name = name;
+  /**废弃标记，在类型已废弃后，不可再实例化此类型*/
+  private boolean isObsoleted;
+
+  /**获取动态类实例，如果此名称指明的类型不存在则使用给出的名称创建一个新的动态类
+   *
+   * @param name 类型的唯一限定名称
+   * @param superDyClass 此动态类型的直接超类
+   * @return 一个具有指定名称的动态类实例*/
+  public static DynamicClass get(String name, DynamicClass superDyClass){
+    return classPool.computeIfAbsent(name, n -> new DynamicClass(n, superDyClass));
   }
 
+  /**获取动态类实例，如果此名称指明的类型不存在则使用给出的名称创建一个新的动态类
+   * <p>从此方法创建的新类没有明确的直接超类，实例将以委托的基类作为直接超类
+   *
+   * @param name 类型的唯一限定名称
+   * @return 一个具有指定名称的动态类实例*/
+  public static DynamicClass get(String name){
+    return classPool.computeIfAbsent(name, n -> new DynamicClass(n, null));
+  }
+
+  /**创建类型实例，不应从外部调用此方法构造实例*/
+  private DynamicClass(String name, DynamicClass superDyClass){
+    this.name = name;
+    this.superDyClass = superDyClass;
+  }
+
+  /**将此类型对象从池中移除并废弃，任何一个动态类不再被使用后，都应当正确的删除。
+   * <p>在你调用此方法之前，<strong>请确保已经没有任何对此类型的引用</strong>*/
+  public void delete(){
+    checkFinalized();
+
+    classPool.remove(name);
+    isObsoleted = true;
+  }
+
+  /**获取此动态类型的名称
+   *
+   * @return 类型的唯一限定名称*/
   public String getName(){
+    checkFinalized();
+
     return name;
   }
 
+  /**获取此动态类型的直接超类，可能为空，为空时表明此类的实例以委托类型作为直接超类
+   *
+   * @return 类型的直接超类*/
   public DynamicClass superDyClass(){
+    checkFinalized();
+
     return superDyClass;
   }
 
-  public <T> void initInstance(DataPool<T> pool){
+  /**分配实例数据池信息，应避免从外部调用此方法
+   *
+   * @hidden */
+  <T> void initInstance(DataPool<T> pool){
+    checkFinalized();
+
     for(Map<FunctionType, MethodEntry> map: methods.values()){
       for(MethodEntry entry: map.values()){
         FunctionType type = entry.getType();
@@ -34,21 +120,54 @@ public class DynamicClass{
       }
     }
 
-    for(Map.Entry<String, Initializer> entry: varInit.entrySet()){
-      pool.set(entry.getKey(), entry.getValue());
+    for(Map.Entry<String, Initializer<?>> entry: varInit.entrySet()){
+      if(entry.getValue().isConst()){
+        pool.setConst(entry.getKey(), entry.getValue().getInit());
+      }
+      else{
+        pool.set(entry.getKey(), entry.getValue().getInit());
+      }
     }
   }
 
+  /**访问一个类作为行为样版，将类中声明的字段/方法用作描述动态类行为，类中声明的<strong>静态成员</strong>将产生如下效果:
+   * <ul>
+   * <li><strong>方法</strong>：为动态类型描述实例共有方法，对于同名同参数的方法若重复传入，则旧的方法会被新的覆盖。
+   * <p>方法样版会创建为方法入口，当实例的此方法被调用时实际上调用会被转入这个样版方法，this指针会作为一个参数被传递（可选）
+   * <p>要接收this指针，你需要使用{@link dynamilize.annotation.This}注解标记样版方法的第一个参数且参数应当为final，
+   * 被标记为this指针的参数类型必须为可分配类型（动态实例可确保已实现了接口DynamicObject），此参数不会占据参数表匹配位置：
+   * <p>例如方法<pre>{@code sample(@This final DynamicObject self, String str)}</pre>可以正确的匹配到对象的函数<pre>{@code sample(String str)}</pre>
+   * 若方法带有final修饰符（尽管这可能会让你收到IDE环境的警告），则此方法在类的行为中将变得不可变更，但是对于对象的此函数依然可以正常替换
+   *
+   * <li><strong>字段</strong>：为动态类型描述默认变量表，并以字段的当前值作为函数的默认初始化数值。
+   * <p>若字段的类型为{@link dynamilize.Initializer.Producer}，则会将此函数作为值的工厂，初始化动态实例时以函数生产的数据作为变量默认值。
+   * <p>如果字段携带final修饰符，那么此变量将被标记为常量，不可变更。
+   * <p><strong>除作为行为样版被访问之外，其他任何时机变量的值变化都不会对类型的行为产生直接影响</strong>
+   * </ul>
+   * 如果模板里存在不希望被作为样版的字段或者方法，你可以使用{@link Exclude}注解标记此目标以排除。
+   * <p><strong>所有描述动态类行为的方法和变量都必须具有public static修饰符</strong>*/
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public void visitClass(Class<?> template){
+    checkFinalized();
+
     for(Method method: template.getDeclaredMethods()){
+      if(method.getAnnotation(Exclude.class) != null) continue;
+
       if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers())) continue;
 
       MethodEntry methodEntry = new MethodEntry(method);
 
-      methods.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>()).put(methodEntry.getType(), methodEntry);
+      Map<FunctionType, MethodEntry> map = methods.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>());
+
+      MethodEntry existed = map.get(methodEntry.getType());
+      if(existed != null && !existed.modifiable()) continue;
+
+      map.put(methodEntry.getType(), methodEntry);
     }
 
     for(Field field: template.getDeclaredFields()){
+      if(field.getAnnotation(Exclude.class) != null) continue;
+
       if(!Modifier.isStatic(field.getModifiers()) || !Modifier.isPublic(field.getModifiers())) continue;
 
       Object value;
@@ -58,7 +177,12 @@ public class DynamicClass{
         throw new RuntimeException(e);
       }
 
-      varInit.put(field.getName(), () -> value);
+      varInit.put(field.getName(), new Initializer<>(value instanceof Initializer.Producer prov? prov: () -> value, Modifier.isFinal(field.getModifiers())));
     }
+  }
+
+  private void checkFinalized(){
+    if(isObsoleted)
+      throw new IllegalHandleException("cannot do anything on obsoleted dynamic class");
   }
 }
