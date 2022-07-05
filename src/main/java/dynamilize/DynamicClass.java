@@ -40,7 +40,8 @@ import java.util.Map;
  * @see DynamicMaker#newInstance(DynamicClass)
  * @see DynamicMaker#newInstance(Class[], DynamicClass)
  * @see DynamicMaker#newInstance(Class, DynamicClass, Object...)
- * */
+ *
+ * @author EBwilson */
 public class DynamicClass{
   /**保存了所有动态类的实例，通常情况下动态类型只有在主动删除时才会退出池，对于废弃的类，请切记使用{@link DynamicClass#delete()}删除，否则会造成内存泄漏*/
   private final static HashMap<String, DynamicClass> classPool = new HashMap<>();
@@ -138,6 +139,7 @@ public class DynamicClass{
    * 被标记为this指针的参数类型必须为可分配类型（动态实例可确保已实现了接口DynamicObject），此参数不会占据参数表匹配位置：
    * <p>例如方法<pre>{@code sample(@This final DynamicObject self, String str)}</pre>可以正确的匹配到对象的函数<pre>{@code sample(String str)}</pre>
    * 若方法带有final修饰符（尽管这可能会让你收到IDE环境的警告），则此方法在类的行为中将变得不可变更，但是对于对象的此函数依然可以正常替换
+   * <p><strong>仅有被替换的方法可以改变实例的行为，对于新增的行为将不会影响已存在的实例的行为，新增行为只会使新产生的实例具有此默认函数</strong>
    *
    * <li><strong>字段</strong>：为动态类型描述默认变量表，并以字段的当前值作为函数的默认初始化数值。
    * <p>若字段的类型为{@link dynamilize.Initializer.Producer}，则会将此函数作为值的工厂，初始化动态实例时以函数生产的数据作为变量默认值。

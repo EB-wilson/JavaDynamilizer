@@ -61,11 +61,12 @@ public class MethodEntry{
             off++;
           }
 
-          for(int i = 0; i < args.length; i++){
+          Object[] argArr = args.args();
+          for(int i = 0; i < argArr.length; i++){
             if(parameterList.size() >= 1){
-              parameterList.set(i + off, args[i]);
+              parameterList.set(i + off, argArr[i]);
             }
-            else parameterList.add(args[i]);
+            else parameterList.add(argArr[i]);
           }
 
           for(int i = parameterList.size(); i > invokeParamCont; i--){

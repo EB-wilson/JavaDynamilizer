@@ -33,6 +33,7 @@ public abstract class DynamicMaker{
   public static final IMethod<DataPool, Object> GET = DATA_POOL_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "get", ClassInfo.STRING_TYPE);
   public static final IMethod<DataPool, Void> SETVAR = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", ClassInfo.STRING_TYPE, ClassInfo.OBJECT_TYPE);
   public static final IMethod<DataPool, Void> SETFUNC = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", ClassInfo.STRING_TYPE, FUNCTION_TYPE, ClassInfo.CLASS_TYPE.asArray());
+  public static final IMethod<DataPool, Void> SET_OWNER = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "setOwner", ClassInfo.OBJECT_TYPE);
   public static final IMethod<DataPool, Function> SELECT = DATA_POOL_TYPE.getMethod(FUNCTION_TYPE, "select", ClassInfo.STRING_TYPE, FUNCTION_TYPE_TYPE);
   public static final IMethod<DynamicObject, Object> INVOKE = DYNAMIC_OBJECT_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "invokeFunc", ClassInfo.STRING_TYPE, ClassInfo.OBJECT_TYPE.asArray());
 
@@ -103,8 +104,6 @@ public abstract class DynamicMaker{
       }).invokeWithArguments(argsLis.toArray());
       type.recycle();
 
-      pool.setOwner(inst);
-
       return inst;
     }catch(Throwable e){
       throw new RuntimeException(e);
@@ -138,7 +137,7 @@ public abstract class DynamicMaker{
             try{
               arg.clear();
               arg.add(self);
-              arg.addAll(List.of(args));
+              arg.addAll(List.of(args.args()));
               return handle.invokeWithArguments(arg);
             }catch(Throwable e){
               throw new RuntimeException(e);
@@ -219,6 +218,7 @@ public abstract class DynamicMaker{
     //   super(*parameters*);
     //   this.$dynamic_type$ = $dyC$;
     //   this.$datapool$ = $datP$;
+    //   this.$datapool$.setOwner(this);
     // }
     for(Constructor<?> cstr: baseClass.getDeclaredConstructors()){
       if((cstr.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) continue;
@@ -231,13 +231,15 @@ public abstract class DynamicMaker{
 
       CodeBlock<Void> code = classInfo.declareConstructor(Modifier.PUBLIC, params.toArray(Parameter[]::new));
       List<ILocal<?>> l = code.getParamList();
-      ILocal<?> self = code.getParam(0);
+      ILocal<?> self = code.getThis();
       code.invokeSuper(self, constructor, null, l.subList(2, l.size()).toArray(ILocal[]::new));
 
       ILocal<DynamicClass> dyC = code.getParam(1);
       ILocal<DataPool<?>> datP = code.getParam(2);
       code.assign(self, dyC, dyType);
       code.assign(self, datP, dataPool);
+
+      code.invoke(datP, SET_OWNER, null, self);
     }
 
     OVERRIDES.clear();
