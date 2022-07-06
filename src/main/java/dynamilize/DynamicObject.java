@@ -1,13 +1,13 @@
 package dynamilize;
 
 /**所有动态对象依赖的接口，描述了动态对象具有的基本行为，关于接口的实现应当由生成器生成。
- * <p>实现此接口的实施通常不应该从外部进行，对于生成器生成的实现类应当满足下列行为：
+ * <p>实现此接口通常不应该从外部进行，而应当通过{@link DynamicMaker#makeClassInfo(Class, Class[])}生成，对于生成器生成的实现类应当满足下列行为：
  * <ul>
  * <li>分配对象保存{@linkplain DataPool 数据池}的字段，字段具有private final修饰符
  * <li>分配对象保存{@linkplain DynamicClass 动态类}的字段，字段具有private final修饰符
  * <li>对每一个超类构造函数生成相应的构造函数，并正确的调用超类的相应超类构造函数
  * 参数前新增两个参数分别传入{@linkplain DataPool 数据池}和{@linkplain DynamicClass 动态类}并分配给成员字段
- * <li>按接口方法的说明，实现接口的各抽象方法
+ * <li>按此接口内的方法说明，实现接口的各抽象方法
  * </ul>
  * 且委托类型的构造函数应当从{@link DynamicMaker}中的几个newInstance调用，否则你必须为之提供合适的构造函数参数
  *

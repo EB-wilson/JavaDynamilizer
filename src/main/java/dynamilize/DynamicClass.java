@@ -49,6 +49,7 @@ public class DynamicClass{
   /**类型的唯一限定名称*/
   private final String name;
 
+  /**此动态类的直接超类*/
   private final DynamicClass superDyClass;
 
   private final Map<String, Map<FunctionType, MethodEntry>> methods = new HashMap<>();
@@ -148,7 +149,6 @@ public class DynamicClass{
    * </ul>
    * 如果模板里存在不希望被作为样版的字段或者方法，你可以使用{@link Exclude}注解标记此目标以排除。
    * <p><strong>所有描述动态类行为的方法和变量都必须具有public static修饰符</strong>*/
-  @SuppressWarnings({"unchecked", "rawtypes"})
   public void visitClass(Class<?> template){
     checkFinalized();
 
@@ -172,15 +172,50 @@ public class DynamicClass{
 
       if(!Modifier.isStatic(field.getModifiers()) || !Modifier.isPublic(field.getModifiers())) continue;
 
-      Object value;
-      try{
-         value = field.get(null);
-      }catch(IllegalAccessException e){
-        throw new RuntimeException(e);
-      }
-
-      varInit.put(field.getName(), new Initializer<>(value instanceof Initializer.Producer prov? prov: () -> value, Modifier.isFinal(field.getModifiers())));
+      setVariableWithField(field);
     }
+  }
+
+  /**访问一个方法样版，不同于{@link DynamicClass#visitClass(Class)}，此方法只访问一个单独的方法并创建其行为样版。
+   * <p>关于此方法的具体行为，请参阅访问行为样版类型的{@linkplain  DynamicClass#visitClass(Class) 方法部分}
+   *
+   * @param method 访问的方法样版*/
+  public void visitMethod(Method method){
+    if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers()))
+      throw new IllegalHandleException("method template must be public and static");
+
+    MethodEntry methodEntry = new MethodEntry(method);
+
+    Map<FunctionType, MethodEntry> map = methods.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>());
+
+    MethodEntry existed = map.get(methodEntry.getType());
+    if(existed != null && !existed.modifiable())
+      throw new IllegalHandleException("cannot modify a final method existed");
+
+    map.put(methodEntry.getType(), methodEntry);
+  }
+
+  /**访问一个字段样版，不同于{@link DynamicClass#visitClass(Class)}，此方法只访问一个单独的字段并创建其行为样版。
+   * <p>关于此方法的具体行为，请参阅访问行为样版类型的{@linkplain  DynamicClass#visitClass(Class) 字段部分}
+   *
+   * @param field 访问的字段样版*/
+  public void visitField(Field field){
+    if(!Modifier.isStatic(field.getModifiers()) || !Modifier.isPublic(field.getModifiers()))
+      throw new IllegalHandleException("field template must be public and static");
+
+    setVariableWithField(field);
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private void setVariableWithField(Field field){
+    Object value;
+    try{
+      value = field.get(null);
+    }catch(IllegalAccessException e){
+      throw new RuntimeException(e);
+    }
+
+    varInit.put(field.getName(), new Initializer<>(value instanceof Initializer.Producer prov? prov: () -> value, Modifier.isFinal(field.getModifiers())));
   }
 
   private void checkFinalized(){

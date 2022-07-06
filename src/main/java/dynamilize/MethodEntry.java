@@ -9,6 +9,10 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 
+/**对{@linkplain DynamicClass#visitClass(Class) 行为样版}中方法描述的入口，在动态类中描述子实例的某一函数行为。
+ * <p>方法入口的运行实际上是对样版方法的引用，因此需要确保样版方法所在的类始终有效，方法入口会生成这个方法的入口函数提供给动态对象使用
+ *
+ * @author EBwilson */
 @SuppressWarnings("unchecked")
 public class MethodEntry{
   private final String name;
@@ -17,6 +21,9 @@ public class MethodEntry{
 
   private final boolean isFinal;
 
+  /**直接通过目标方法创建方法入口，并生成对方法引用的句柄提供给匿名函数以描述此函数行为
+   *
+   * @param invokeMethod 样版方法*/
   public MethodEntry(Method invokeMethod){
     this.name = invokeMethod.getName();
     this.isFinal = Modifier.isFinal(invokeMethod.getModifiers());
@@ -83,18 +90,22 @@ public class MethodEntry{
     }
   }
 
+  /**获取方法入口的名称*/
   public String getName(){
     return name;
   }
 
+  /**此方法入口是否允许被替换*/
   public boolean modifiable(){
     return !isFinal;
   }
 
+  /**获取此方法入口定义的引用匿名函数*/
   public <S, R> Function<S, R> getFunction(){
     return (Function<S, R>) defFunc;
   }
 
+  /**获取此方法的形式参数表类型*/
   public FunctionType getType(){
     return type;
   }

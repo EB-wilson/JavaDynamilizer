@@ -19,6 +19,29 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
+/**动态类型运作的核心工厂类型，用于将传入的动态类型与委托基类等构造出动态委托类型以及其实例。
+ * <p>定义了基于{@link ASMGenerator}的默认生成器实现，通过{@link DynamicMaker#getDefault()}获取该实例以使用
+ * <p>若需要特殊的实现，则需要重写/实现此类的方法，主要的方法：
+ * <ul>
+ * <li><strong>{@link DynamicMaker#makeClassInfo(Class, Class[])}</strong>：决定此工厂如何构造委托类的描述信息
+ * <li><strong>{@link DynamicMaker#generateClass(Class, Class[])}</strong>：决定如何解析描述信息生成字节码以及如何加载字节码为java类
+ * </ul>
+ * 实施时必须按照方法的描述给出基本的实现，不应该改变原定的最低上下文请求。
+ * <pre>
+ * 使用方法可参阅：
+ *   {@link DynamicClass}
+ * DynamicMaker的方法：
+ *   {@link DynamicMaker#newInstance(DynamicClass)}
+ *   {@link DynamicMaker#newInstance(Class[], DynamicClass)}
+ *   {@link DynamicMaker#newInstance(Class, DynamicClass, Object...)}
+ *   {@link DynamicMaker#newInstance(Class, Class[], DynamicClass, Object...)}
+ * </pre>
+ *
+ * @see DynamicClass
+ * @see DynamicObject
+ * @see DataPool
+ *
+ * @author EBwilson */
 @SuppressWarnings("rawtypes")
 public abstract class DynamicMaker{
   public static final String CALLSUPER = "$super";
@@ -46,12 +69,22 @@ public abstract class DynamicMaker{
   private final HashMap<ClassImplements<?>, Class<?>> pool = new HashMap<>();
   private final HashMap<Class<?>, HashMap<FunctionType, MethodHandle>> constructors = new HashMap<>();
 
+  /**创建一个实例，并传入其要使用的{@linkplain JavaHandleHelper java行为支持器}，子类引用此构造器可能直接设置默认的行为支持器而无需外部传入*/
   protected DynamicMaker(JavaHandleHelper helper){
     this.helper = helper;
   }
 
+  /**获取默认的动态类型工厂，工厂具备基于{@link ASMGenerator}与适用于<i>HotSpot JVM</i>运行时的{@link JavaHandleHelper}进行的实现。
+   * 适用于：
+   * <ul>
+   * <li>java运行时版本1.8的所有jvm
+   * <li>java运行时版本大于等于1.9的<i>甲骨文HotSpot JVM</i>
+   * <li><strong><i>IBM OpenJ9</i>运行时尚未支持</strong>
+   * </ul>
+   * 若有范围外的需求，可按需要进行实现*/
   public static DynamicMaker getDefault(){
-    ASMGenerator generator = new ASMGenerator(new BaseClassLoader(DynamicMaker.class.getClassLoader()), Opcodes.V1_8);
+    BaseClassLoader loader = new BaseClassLoader(DynamicMaker.class.getClassLoader());
+    ASMGenerator generator = new ASMGenerator(loader, Opcodes.V1_8);
 
     return new DynamicMaker(acc -> {
       try{
@@ -62,33 +95,60 @@ public abstract class DynamicMaker{
       acc.setAccessible(true);
     }){
       @Override
-      protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces, DynamicClass dynamicClass){
-        return makeClassInfo(baseClass, interfaces, dynamicClass).generate(generator);
+      protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces){
+        return makeClassInfo(baseClass, interfaces).generate(generator);
       }
     };
   }
 
+  /**使用默认构造函数构造没有实现额外接口的动态类的实例，实例的java类型委托类为{@link Object}
+   *
+   * @param dynamicClass 用于实例化的动态类型
+   * @return 构造出的动态实例*/
   public DynamicObject newInstance(DynamicClass dynamicClass){
     return newInstance(EMPTY_CLASSES, dynamicClass);
   }
 
+  /**使用默认构造函数构造动态类的实例，实例实现了给出的接口列表，java类型委托为{@link Object}
+   *
+   * @param interfaces 实例实现的接口列表
+   * @param dynamicClass 用于实例化的动态类型
+   * @return 构造出的动态实例*/
   @SuppressWarnings("rawtypes")
   public DynamicObject newInstance(Class<?>[] interfaces, DynamicClass dynamicClass){
     return (DynamicObject) newInstance(Object.class, interfaces, dynamicClass);
   }
 
+  /**用给出的构造函数参数构造动态类的实例，参数表必须可以在委托的java类型中存在匹配的可用构造器。
+   * <p>实例无额外接口，类型委托由参数确定
+   *
+   * @param base 执行委托的java类型，这将决定此实例可分配到的类型
+   * @param dynamicClass 用于实例化的动态类型
+   * @param args 构造函数实参
+   * @return 构造出的动态实例
+   *
+   * @throws RuntimeException 若构造函数实参无法匹配到相应的构造器或者存在其他异常*/
   public <T> T newInstance(Class<T> base, DynamicClass dynamicClass, Object... args){
     return newInstance(base, EMPTY_CLASSES, dynamicClass, args);
   }
 
+  /**用给出的构造函数参数构造动态类的实例，参数表必须可以在委托的java类型中存在匹配的可用构造器。
+   * <p>实例实现了给出的接口列表，类型委托由参数确定
+   *
+   * @param base 执行委托的java类型，这将决定此实例可分配到的类型
+   * @param interfaces 实例实现的接口列表
+   * @param dynamicClass 用于实例化的动态类型
+   * @param args 构造函数实参
+   * @return 构造出的动态实例
+   *
+   * @throws RuntimeException 若构造函数实参无法匹配到相应的构造器或者存在其他异常*/
   @SuppressWarnings("unchecked")
   public <T> T newInstance(Class<T> base, Class<?>[] interfaces, DynamicClass dynamicClass, Object... args){
     checkBase(base);
 
-    Class<? extends T> clazz = getDynamicBase(base, interfaces, dynamicClass);
+    Class<? extends T> clazz = getDynamicBase(base, interfaces);
     try{
-      DataPool<T> pool;
-      List<Object> argsLis = new ArrayList<>(List.of(dynamicClass, pool = genPool(clazz, dynamicClass)));
+      List<Object> argsLis = new ArrayList<>(List.of(dynamicClass, genPool(clazz, dynamicClass)));
       argsLis.addAll(Arrays.asList(args));
 
       Constructor<?> cstr = clazz.getDeclaredConstructor(argsLis.stream().map(Object::getClass).toArray(Class[]::new));
@@ -110,6 +170,7 @@ public abstract class DynamicMaker{
     }
   }
 
+  /**检查委托基类的可用性，基类若为final或者不是动态委托产生的类型则都会抛出异常*/
   protected <T> void checkBase(Class<T> base){
     if(base.getAnnotation(DynamicType.class) != null)
       throw new IllegalHandleException("cannot derive a dynamic class with a dynamic class");
@@ -121,19 +182,25 @@ public abstract class DynamicMaker{
       throw new IllegalHandleException("cannot derive a dynamic class with a final class");
   }
 
+  /**生成动态类型相应的数据池，数据池完成动态类型向上对超类的迭代逐级分配数据池信息，同时对委托产生的动态类型生成所有方法和字段的函数/变量入口并放入数据池
+   *
+   * @param base 动态委托类
+   * @param dynamicClass 描述行为的动态类型
+   * @return 生成的动态类型数据池*/
   protected <T> DataPool<T> genPool(Class<? extends T> base, DynamicClass dynamicClass){
     DataPool<T> basePool = new DataPool<>(null);
     MethodHandles.Lookup lookup = MethodHandles.lookup();
 
     for(Method method: base.getDeclaredMethods()){
-      String name = method.getName();
-      if(name.endsWith(CALLSUPER)){
+      CallSuperMethod callSuper = method.getAnnotation(CallSuperMethod.class);
+      if(callSuper != null){
+        String name = callSuper.srcMethod();
         try{
           MethodHandle handle = lookup.unreflect(method);
 
           List<Object> arg = new ArrayList<>();
 
-          basePool.set(name.replace(CALLSUPER, ""), (self, args) -> {
+          basePool.set(name, (self, args) -> {
             try{
               arg.clear();
               arg.add(self);
@@ -171,13 +238,34 @@ public abstract class DynamicMaker{
     return pool;
   }
 
+  /**根据委托基类和实现的接口获取生成的动态类型实例的类型，类型会生成并放入池，下一次获取会直接从池中取出该类型
+   *
+   * @param base 委托的基类
+   * @param interfaces 需要实现的接口列表*/
   @SuppressWarnings("unchecked")
-  public <T> Class<? extends T> getDynamicBase(Class<T> base, Class<?>[] interfaces, DynamicClass dynamicClass){
-    return (Class<? extends T>) pool.computeIfAbsent(new ClassImplements<>(base, interfaces), e -> generateClass(base, interfaces, dynamicClass));
+  protected <T> Class<? extends T> getDynamicBase(Class<T> base, Class<?>[] interfaces){
+    return (Class<? extends T>) pool.computeIfAbsent(new ClassImplements<>(base, interfaces), e -> generateClass(base, interfaces));
   }
 
+  /**由基类与接口列表建立动态类的打包名称，打包名称具有唯一性（或者足够高的离散性，不应出现频繁的碰撞）和不变性
+   *
+   * @param baseClass 基类
+   * @param interfaces 接口列表
+   * @return 由基类名称与全部接口名称的哈希值构成的打包名称*/
+  public static <T> String getDynamicName(Class<T> baseClass, Class<?>... interfaces){
+    return baseClass.getName() + "$dynamic$" + Arrays.stream(interfaces).map(Class::getName).toList().hashCode();
+  }
+
+  /**创建动态实例类型的类型标识，这应当覆盖所有委托目标类的方法和实现的接口中的方法，若超类的某一成员方法不是抽象的，需保留对超类方法的入口，
+   * 再重写本方法，对超类方法的入口需要有一定的标识以供生成基类数据池的引用函数时使用。
+   * <p>对于给定的基类和接口列表，生成的动态实例基类的名称是唯一的（或者足够的离散以至于几乎不可能碰撞）。
+   * <p>关于此方法实现需要完成的工作，请参阅{@link DynamicObject}中的描述
+   *
+   * @param baseClass 委托基类
+   * @param interfaces 实现的接口列表
+   * @return 完成了所有必要描述的类型标识*/
   @SuppressWarnings({"unchecked", "rawtypes"})
-  protected <T> ClassInfo<? extends T> makeClassInfo(Class<T> baseClass, Class<?>[] interfaces, DynamicClass dynamicClass){
+  protected <T> ClassInfo<? extends T> makeClassInfo(Class<T> baseClass, Class<?>[] interfaces){
     ArrayList<ClassInfo<?>> inter = new ArrayList<>(interfaces.length + 1);
     inter.add(ClassInfo.asType(DynamicObject.class));
 
@@ -185,13 +273,9 @@ public abstract class DynamicMaker{
       inter.add(ClassInfo.asType(i));
     }
 
-    String packageName = baseClass.getPackageName() + ".";
-    if(packageName.equals("java.lang")) packageName = "dyjava.lang";
-    else if(packageName.equals(".")) packageName = "";
-
     ClassInfo<? extends T> classInfo = new ClassInfo<>(
         Modifier.PUBLIC,
-         packageName + dynamicClass.getName() + "$dynamic$",
+        getDynamicName(baseClass, interfaces),
         ClassInfo.asType(baseClass),
         inter.toArray(ClassInfo[]::new)
     );
@@ -331,6 +415,9 @@ public abstract class DynamicMaker{
               code.returnValue(res);
             }
             else code.invokeSuper(code.getThis(), superMethod, null, code.getParamList().toArray(ILocal[]::new));
+
+            AnnotationType<CallSuperMethod> callSuper = AnnotationType.asAnnotationType(CallSuperMethod.class);
+            callSuper.annotateTo(code.owner(), Map.of("srcMethod", methodName));
           }
         }
       }
@@ -457,11 +544,26 @@ public abstract class DynamicMaker{
     return classInfo;
   }
 
-  protected abstract <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces, DynamicClass dynamicClass);
+  /**生成委托自基类并实现了给出的接口列表的类型，而类的行为描述请参考{@link DynamicMaker#makeClassInfo(Class, Class[])}，类型描述会在此方法产出。
+   * <p>该方法需要做的事通常是将makeClassInfo获得的类型标识进行生成并加载其表示的java类型
+   *
+   * @param baseClass 委托基类
+   * @param interfaces 实现的接口列表
+   * @return 对全方法进行动态委托的类型*/
+  protected abstract <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces);
 
+  /**动态委托类型标识，由此工厂生成的动态委托类型都会具有此注解标识*/
   @Target(ElementType.TYPE)
   @Retention(RetentionPolicy.RUNTIME)
   public @interface DynamicType{}
+
+  /**超类方法标识，带有一个属性描述了此方法所引用的超类方法名称，所有生成的对super方法入口都会具有此注解。*/
+  @Target(ElementType.METHOD)
+  @Retention(RetentionPolicy.RUNTIME)
+  public @interface CallSuperMethod{
+    /**方法所调用的超类源方法，将提供给初级数据池标识对超类方法的引用*/
+    String srcMethod();
+  }
 
   private static class ClassImplements<T>{
     final Class<T> base;

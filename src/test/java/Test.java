@@ -1,12 +1,18 @@
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-
 public class Test{
   public static void main(final String[] args) throws NoSuchMethodException{
-    Method main = Test.class.getDeclaredMethod("main", String[].class);
+    new T1().run();
+    new T2().run();
+  }
 
-    for(Parameter parameter: main.getParameters()){
-      System.out.println(parameter);
+  public static class T1{
+    public void run(){
+      System.out.println(T1.class.hashCode());
+    }
+  }
+
+  public static class T2{
+    public void run(){
+      System.out.println(T2.class.hashCode());
     }
   }
 }
