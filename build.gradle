@@ -2,14 +2,15 @@ plugins {
   id 'java'
   id 'com.github.johnrengelman.shadow' version '2.0.4'
 }
+apply plugin: 'maven-publish'
+
+group 'com.github.EB-wilson'
+version '1.0-A1'
 
 repositories {
   mavenCentral()
   maven{ url 'https://www.jitpack.io' }
 }
-
-group 'com.github.EB-wilson'
-version '1.0-A1'
 
 tasks.withType(JavaCompile){
   options.compilerArgs.addAll([
