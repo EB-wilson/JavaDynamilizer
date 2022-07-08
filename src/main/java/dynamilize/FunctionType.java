@@ -19,7 +19,7 @@ public class FunctionType{
   }
 
   public static FunctionType inst(List<Class<?>> paramType){
-    return inst(paramType.toArray(Class[]::new));
+    return inst(paramType.toArray(new Class[0]));
   }
 
   public static FunctionType inst(Class<?>... paramType){
@@ -75,7 +75,8 @@ public class FunctionType{
   @Override
   public boolean equals(Object o){
     if(this == o) return true;
-    if(!(o instanceof FunctionType that)) return false;
+    if(!(o instanceof FunctionType)) return false;
+    FunctionType that = (FunctionType) o;
     return Arrays.equals(paramType, that.paramType);
   }
 

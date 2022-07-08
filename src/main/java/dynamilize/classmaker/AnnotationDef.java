@@ -34,7 +34,7 @@ public class AnnotationDef<A extends Annotation> implements IAnnotation<A>{
       for(Method method: anno.annotationType().getDeclaredMethods()){
         temp.put(method.getName(), lookup.unreflect(method).invoke(anno));
       }
-      pairs = Map.copyOf(temp);
+      pairs = new HashMap<>(temp);
     }catch(Throwable e){
       throw new IllegalHandleException(e);
     }
@@ -48,7 +48,7 @@ public class AnnotationDef<A extends Annotation> implements IAnnotation<A>{
 
     HashMap<String, Object> temp = new HashMap<>(annoType.defaultValues());
     if(attributes != null) temp.putAll(attributes);
-    pairs = Map.copyOf(temp);
+    pairs = new HashMap<>(temp);
   }
 
   @Override

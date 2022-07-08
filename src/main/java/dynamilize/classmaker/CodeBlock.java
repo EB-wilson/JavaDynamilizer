@@ -45,11 +45,11 @@ public class CodeBlock<R> implements ICodeBlock<R>{
 
   @Override
   public List<ILocal<?>> getParamList(){
-    return selfPointer == null? List.copyOf(parameter): parameter.subList(1, parameter.size());
+    return selfPointer == null? new ArrayList<>(parameter): parameter.subList(1, parameter.size());
   }
 
   public List<ILocal<?>> getParamAll(){
-    return List.copyOf(parameter);
+    return new ArrayList<>(parameter);
   }
 
   @Override
@@ -279,7 +279,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   @SafeVarargs
   public final <T> void newArray(IClass<T> arrElemType, ILocal<?> storeTo, ILocal<Integer>... length){
     codes().add(
-        new NewArray<>(arrElemType, List.of(length), storeTo)
+        new NewArray<>(arrElemType, Arrays.asList(length), storeTo)
     );
   }
 
@@ -499,7 +499,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
       this.method = method;
       this.returnTo = method.returnType() != ClassInfo.VOID_TYPE? returnTo: null;
       this.target = target;
-      this.args = List.of(args);
+      this.args = Arrays.asList(args);
       this.callSuper = callSuper;
 
       if(callSuper && !method.owner().isAssignableFrom(target.type()))
@@ -639,7 +639,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
       this.constructor = constructor;
       this.type = constructor.owner();
       this.resultTo = resultTo;
-      this.params = List.of(params);
+      this.params = Arrays.asList(params);
     }
 
     @Override

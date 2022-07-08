@@ -261,7 +261,7 @@ public class DynamicClass{
     varInit.put(name, new Initializer<>(prov, isConst));
   }
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
+  @SuppressWarnings({"unchecked"})
   private void setVariableWithField(Field field){
     Object value;
     try{
@@ -270,7 +270,8 @@ public class DynamicClass{
       throw new RuntimeException(e);
     }
 
-    varInit.put(field.getName(), new Initializer<>(value instanceof Initializer.Producer prov? prov: () -> value, Modifier.isFinal(field.getModifiers())));
+    varInit.put(field.getName(), new Initializer<>(value instanceof Initializer.Producer? (Initializer.Producer<? super Object>) value: () -> value,
+        Modifier.isFinal(field.getModifiers())));
   }
 
   private void checkFinalized(){

@@ -29,7 +29,7 @@ public class MethodInfo<S, R> extends AnnotatedMember implements IMethod<S, R>{
     this.block = (modifiers & Modifier.ABSTRACT) != 0? null: new CodeBlock<>(this);
     this.owner = owner;
     this.returnType = returnType;
-    this.parameter = List.of(params);
+    this.parameter = Arrays.asList(params);
 
     Arrays.stream(params).forEach(e -> e.setOwner(this));
 

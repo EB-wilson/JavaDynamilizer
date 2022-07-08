@@ -65,6 +65,7 @@ public abstract class DynamicMaker{
   private static final Map<String, Set<FunctionType>> OVERRIDES = new HashMap<>();
   private static final Set<Class<?>> INTERFACE_TEMP = new HashSet<>();
   private static final Class[] EMPTY_CLASSES = new Class[0];
+  public static final ILocal[] LOCALS_EMP = new ILocal[0];
 
   private final JavaHandleHelper helper;
 
@@ -89,11 +90,6 @@ public abstract class DynamicMaker{
     ASMGenerator generator = new ASMGenerator(loader, Opcodes.V1_8);
 
     return new DynamicMaker(acc -> {
-      try{
-        Class.forName("java.lang.Module");
-        Demodulator.checkAndMakeModuleOpen(acc.getClass().getModule(), acc.getClass().getPackage(), DynamicClass.class.getModule());
-      }catch(ClassNotFoundException ignored){}
-
       acc.setAccessible(true);
     }){
       @Override
@@ -150,7 +146,7 @@ public abstract class DynamicMaker{
 
     Class<? extends T> clazz = getDynamicBase(base, interfaces);
     try{
-      List<Object> argsLis = new ArrayList<>(List.of(dynamicClass, genPool(clazz, dynamicClass)));
+      List<Object> argsLis = new ArrayList<>(Arrays.asList(dynamicClass, genPool(clazz, dynamicClass)));
       argsLis.addAll(Arrays.asList(args));
 
       Constructor<?> cstr = clazz.getDeclaredConstructor(argsLis.stream().map(Object::getClass).toArray(Class[]::new));
@@ -279,7 +275,7 @@ public abstract class DynamicMaker{
         Modifier.PUBLIC,
         getDynamicName(baseClass, interfaces),
         ClassInfo.asType(baseClass),
-        inter.toArray(ClassInfo[]::new)
+        inter.toArray(new ClassInfo[0])
     );
 
     FieldInfo<DynamicClass> dyType = classInfo.declareField(
@@ -315,10 +311,10 @@ public abstract class DynamicMaker{
 
       IMethod<?, Void> constructor = classInfo.superClass().getConstructor(superParams.stream().map(Parameter::getType).toArray(IClass[]::new));
 
-      CodeBlock<Void> code = classInfo.declareConstructor(Modifier.PUBLIC, params.toArray(Parameter[]::new));
+      CodeBlock<Void> code = classInfo.declareConstructor(Modifier.PUBLIC, params.toArray(new Parameter[0]));
       List<ILocal<?>> l = code.getParamList();
       ILocal<?> self = code.getThis();
-      code.invokeSuper(self, constructor, null, l.subList(2, l.size()).toArray(ILocal[]::new));
+      code.invokeSuper(self, constructor, null, l.subList(2, l.size()).toArray(LOCALS_EMP));
 
       ILocal<DynamicClass> dyC = code.getParam(1);
       ILocal<DataPool<?>> datP = code.getParam(2);
@@ -413,13 +409,15 @@ public abstract class DynamicMaker{
 
             if(returnType != ClassInfo.VOID_TYPE){
               ILocal res = code.local(returnType);
-              code.invokeSuper(code.getThis(), superMethod, res, code.getParamList().toArray(ILocal[]::new));
+              code.invokeSuper(code.getThis(), superMethod, res, code.getParamList().toArray(LOCALS_EMP));
               code.returnValue(res);
             }
-            else code.invokeSuper(code.getThis(), superMethod, null, code.getParamList().toArray(ILocal[]::new));
+            else code.invokeSuper(code.getThis(), superMethod, null, code.getParamList().toArray(LOCALS_EMP));
 
             AnnotationType<CallSuperMethod> callSuper = AnnotationType.asAnnotationType(CallSuperMethod.class);
-            callSuper.annotateTo(code.owner(), Map.of("srcMethod", methodName));
+            HashMap<String, Object> map = new HashMap<>();
+            map.put("srcMethod", methodName);
+            callSuper.annotateTo(code.owner(), map);
           }
         }
       }
@@ -579,7 +577,8 @@ public abstract class DynamicMaker{
     @Override
     public boolean equals(Object o){
       if(this == o) return true;
-      if(!(o instanceof ClassImplements<?> that)) return false;
+      if(!(o instanceof ClassImplements<?>)) return false;
+      ClassImplements<?> that = (ClassImplements<?>) o;
       return base.equals(that.base) && Arrays.equals(interfaces, that.interfaces);
     }
 

@@ -39,7 +39,7 @@ public abstract class AnnotatedMember implements AnnotatedElement{
 
   @Override
   public List<IAnnotation<?>> getAnnotations(){
-    return annotationsList == null? List.of(): annotationsList;
+    return annotationsList == null? new ArrayList<>(): annotationsList;
   }
 
   @Override

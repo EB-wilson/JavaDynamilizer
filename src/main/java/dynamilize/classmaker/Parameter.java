@@ -29,7 +29,7 @@ public class Parameter<T> extends AnnotatedMember implements AnnotatedElement{
     for(int i = 0; i < infos.length; i += 3){
       res[i/3] = new Parameter<>(
           ((Number) infos[i]).intValue(),
-          infos[i + 1] instanceof IClass c ? c : ClassInfo.asType((Class<?>) infos[i + 1]),
+          infos[i + 1] instanceof IClass? (IClass) infos[i + 1] : ClassInfo.asType((Class<?>) infos[i + 1]),
           (String) infos[i + 2]
       );
     }

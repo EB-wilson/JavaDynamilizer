@@ -16,31 +16,34 @@ import java.util.*;
 
 /**基于ASM字节码操作框架实现的默认类型生成器，*/
 public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
-  protected static final Map<Character, Map<Character, Integer>> CASTTABLE = Map.of(
-      'I', Map.of(
-          'I', I2L,
-          'F', I2F,
-          'D', I2D,
-          'B', I2B,
-          'C', I2C,
-          'S', I2S
-      ),
-      'L', Map.of(
-          'I', L2I,
-          'F', L2F,
-          'D', L2D
-      ),
-      'F', Map.of(
-          'I', F2I,
-          'L', F2L,
-          'D', F2D
-      ),
-      'D', Map.of(
-          'I', D2I,
-          'L', D2L,
-          'F', D2F
-      )
-  );
+  protected static final Map<Character, Map<Character, Integer>> CASTTABLE = new HashMap<>();
+
+  static {
+    HashMap<Character, Integer> map;
+    map = new HashMap<>();
+    CASTTABLE.put('I', map);
+    map.put('I', I2L);
+    map.put('F', I2F);
+    map.put('D', I2D);
+    map.put('B', I2B);
+    map.put('C', I2C);
+    map.put('S', I2S);
+    map = new HashMap<>();
+    CASTTABLE.put('L', map);
+    map.put('I', L2I);
+    map.put('F', L2F);
+    map.put('D', L2D);
+    map = new HashMap<>();
+    CASTTABLE.put('F', map);
+    map.put('I', F2I);
+    map.put('L', F2L);
+    map.put('D', F2D);
+    map = new HashMap<>();
+    CASTTABLE.put('D', map);
+    map.put('I', D2I);
+    map.put('L', D2L);
+    map.put('F', D2F);
+  }
 
   protected final ByteClassLoader classLoader;
   protected final int codeVersion;
@@ -213,7 +216,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     super.visitCodeBlock(block);
 
     Element end = block.codes().isEmpty()? null: block.codes().get(block.codes().size() - 1);
-    if(end instanceof IReturn<?> ret){
+    if(end != null && end.kind() == ElementKind.RETURN){
+      IReturn<?> ret = (IReturn<?>) end;
       if((ret.returnValue() == null && block.owner().returnType().equals(ClassInfo.VOID_TYPE) )
       || (block.owner().returnType().isAssignableFrom(ret.returnValue().type()))) return;
     }
@@ -405,82 +409,76 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     );
 
     IClass<?> type = operate.leftOpNumber().type();
-    int ilfd = type == ClassInfo.INT_TYPE || type == ClassInfo.BYTE_TYPE
+    int ilfd = getILFD(type);
+
+    int opc = -1;
+    switch(operate.opCode()){
+      case ADD:
+        opc = selectILFD(ilfd, IADD, LADD, FADD, DADD);
+        break;
+      case SUBSTRUCTION:
+        opc = selectILFD(ilfd, ISUB, LSUB, FSUB, DSUB);
+        break;
+      case MULTI:
+        opc = selectILFD(ilfd, IMUL, LMUL, FMUL, DMUL);
+        break;
+      case DIVISION:
+        opc = selectILFD(ilfd, IDIV, LDIV, FDIV, DDIV);
+        break;
+      case REMAINING:
+        opc = selectILFD(ilfd, IREM, LREM, FREM, DREM);
+        break;
+      case LEFTMOVE:
+        opc = selectIL(ilfd, ISHL, LSHL);
+        break;
+      case RIGHTMOVE:
+        opc = selectIL(ilfd, ISHR, LSHR);
+        break;
+      case UNSIGNMOVE:
+        opc = selectIL(ilfd, IUSHR, LUSHR);
+        break;
+      case BITSAME:
+        opc = selectIL(ilfd, IAND, LAND);
+        break;
+      case BITOR:
+        opc = selectIL(ilfd, IOR, LOR);
+        break;
+      case BITXOR:
+        opc = selectIL(ilfd, IXOR, LXOR);
+    }
+
+    methodVisitor.visitInsn(opc);
+  }
+
+  private int selectIL(int ilfd, int ishl, int lshl){
+    int opc;
+    switch(ilfd){
+      case 1: opc = ishl; break;
+      case 2: opc = lshl; break;
+      default: throw new IllegalStateException("Unexpected value: " + ilfd);
+    }
+    return opc;
+  }
+
+  private int selectILFD(int ilfd, int iadd, int ladd, int fadd, int dadd){
+    int opc;
+    switch(ilfd){
+      case 1: opc = iadd; break;
+      case 2: opc = ladd; break;
+      case 3: opc = fadd; break;
+      case 4: opc = dadd; break;
+      default: throw new IllegalStateException("Unexpected value: " + ilfd);
+    }
+    return opc;
+  }
+
+  private int getILFD(IClass<?> type){
+    return type == ClassInfo.INT_TYPE || type == ClassInfo.BYTE_TYPE
             || type == ClassInfo.SHORT_TYPE || type == ClassInfo.BOOLEAN_TYPE
             || type == ClassInfo.CHAR_TYPE? 1:
         type == ClassInfo.LONG_TYPE? 2:
         type == ClassInfo.FLOAT_TYPE? 3:
         type == ClassInfo.DOUBLE_TYPE? 4: -1;
-
-    int opc = switch(operate.opCode()){
-      case ADD -> switch(ilfd){
-        case 1 -> IADD;
-        case 2 -> LADD;
-        case 3 -> FADD;
-        case 4 -> DADD;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case SUBSTRUCTION -> switch(ilfd){
-        case 1 -> ISUB;
-        case 2 -> LSUB;
-        case 3 -> FSUB;
-        case 4 -> DSUB;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case MULTI -> switch(ilfd){
-        case 1 -> IMUL;
-        case 2 -> LMUL;
-        case 3 -> FMUL;
-        case 4 -> DMUL;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case DIVISION -> switch(ilfd){
-        case 1 -> IDIV;
-        case 2 -> LDIV;
-        case 3 -> FDIV;
-        case 4 -> DDIV;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case REMAINING -> switch(ilfd){
-        case 1 -> IREM;
-        case 2 -> LREM;
-        case 3 -> FREM;
-        case 4 -> DREM;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case LEFTMOVE -> switch(ilfd){
-        case 1 -> ISHL;
-        case 2 -> LSHL;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case RIGHTMOVE -> switch(ilfd){
-        case 1 -> ISHR;
-        case 2 -> LSHR;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case UNSIGNMOVE -> switch(ilfd){
-        case 1 -> IUSHR;
-        case 2 -> LUSHR;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case BITSAME -> switch(ilfd){
-        case 1 -> IAND;
-        case 2 -> LAND;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case BITOR -> switch(ilfd){
-        case 1 -> IOR;
-        case 2 -> LOR;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case BITXOR -> switch(ilfd){
-        case 1 -> IXOR;
-        case 2 -> LXOR;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-    };
-
-    methodVisitor.visitInsn(opc);
   }
 
   @Override
@@ -511,14 +509,15 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitCompare(ICompare<?> compare){
-    int opc = switch(compare.comparison()){
-      case EQUAL -> IF_ACMPEQ;
-      case UNEQUAL -> IF_ACMPNE;
-      case LESS -> IF_ICMPLT;
-      case LESSOREQUAL -> IF_ICMPLE;
-      case MORE -> IF_ICMPGT;
-      case MOREOREQUAL -> IF_ICMPGE;
-    };
+    int opc = -1;
+    switch(compare.comparison()){
+      case EQUAL: opc = IF_ACMPEQ; break;
+      case UNEQUAL: opc = IF_ACMPNE; break;
+      case LESS: opc = IF_ICMPLT; break;
+      case LESSOREQUAL: opc = IF_ICMPLE; break;
+      case MORE: opc = IF_ICMPGT; break;
+      case MOREOREQUAL: opc = IF_ICMPGE; break;
+    }
 
     methodVisitor.visitVarInsn(
         getLoadType(compare.leftNumber().type()),
@@ -535,14 +534,15 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitCondition(ICondition condition){
-    int opc = switch(condition.condCode()){
-      case EQUAL -> IFEQ;
-      case UNEQUAL -> IFNE;
-      case LESS -> IFLT;
-      case LESSOREQUAL -> IFLE;
-      case MORE -> IFGT;
-      case MOREOREQUAL -> IFGE;
-    };
+    int opc = -1;
+    switch(condition.condCode()){
+      case EQUAL: opc = IFEQ; break;
+      case UNEQUAL: opc = IFNE; break;
+      case LESS: opc = IFLT; break;
+      case LESSOREQUAL: opc = IFLE; break;
+      case MORE: opc = IFGT; break;
+      case MOREOREQUAL: opc = IFGE; break;
+    }
 
     methodVisitor.visitVarInsn(
         getLoadType(condition.condition().type()),
@@ -624,14 +624,13 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       methodVisitor.visitInsn(RETURN);
     }
     else{
-      int opc = switch(getTypeChar(iReturn.returnValue().type(), true)){
-        case 'I' -> IRETURN;
-        case 'L' -> LRETURN;
-        case 'F' -> FRETURN;
-        case 'D' -> DRETURN;
-        case 'A' -> ARETURN;
-
-        default -> throw new IllegalStateException("Unexpected value: " + getTypeChar(iReturn.returnValue().type(), true));
+      int opc = -1;
+      switch(getTypeChar(iReturn.returnValue().type(), true)){
+        case 'I': opc = IRETURN; break;
+        case 'L': opc = LRETURN; break;
+        case 'F': opc = FRETURN; break;
+        case 'D': opc = DRETURN; break;
+        case 'A': opc = ARETURN; break;
       };
 
       methodVisitor.visitVarInsn(
@@ -697,27 +696,17 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     );
 
     IClass<?> type = operate.operateNumber().type();
-    int ilfd = type == ClassInfo.INT_TYPE || type == ClassInfo.BYTE_TYPE
-        || type == ClassInfo.SHORT_TYPE || type == ClassInfo.BOOLEAN_TYPE
-        || type == ClassInfo.CHAR_TYPE? 1:
-    type == ClassInfo.LONG_TYPE? 2:
-    type == ClassInfo.FLOAT_TYPE? 3:
-    type == ClassInfo.DOUBLE_TYPE? 4: -1;
+    int ilfd = getILFD(type);
 
-    int opc = switch(operate.opCode()){
-      case NEGATIVE -> switch(ilfd){
-        case 1 -> INEG;
-        case 2 -> LNEG;
-        case 3 -> FNEG;
-        case 4 -> DNEG;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-      case BITNOR -> switch(ilfd){
-        case 1 -> IXOR;
-        case 2 -> LXOR;
-        default -> throw new IllegalStateException("Unexpected value: " + ilfd);
-      };
-    };
+    int opc = -1;
+    switch(operate.opCode()){
+      case NEGATIVE:
+        opc = selectILFD(ilfd, INEG, LNEG, FNEG, DNEG);
+        break;
+      case BITNOR:
+        opc = selectIL(ilfd, IXOR, LXOR);
+        break;
+    }
 
     if(opc == IXOR){
       methodVisitor.visitInsn(ICONST_M1);
@@ -795,8 +784,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
           annoType.realName(), ret
       ): element.isType(ElementType.METHOD) || element.isType(ElementType.CONSTRUCTOR)? methodVisitor.visitAnnotation(
           annoType.realName(), ret
-      ): element.isType(ElementType.PARAMETER) && element instanceof Parameter<?> p? methodVisitor.visitParameterAnnotation(
-          localIndex.get(p.name()),
+      ): element.isType(ElementType.PARAMETER) && element instanceof Parameter<?>? methodVisitor.visitParameterAnnotation(
+          localIndex.get(((Parameter<?>)element).name()),
           annoType.realName(),
           ret
       ): null;
@@ -874,16 +863,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     }
     else if(value instanceof String || value instanceof Float
     || value instanceof Long || value instanceof Double){
-      if(value instanceof Long l){
+      if(value instanceof Long){
+        long l = (long) value;
         if(l == 0){methodVisitor.visitInsn(LCONST_0); return;}
         else if(l == 1){methodVisitor.visitInsn(LCONST_1); return;}
       }
-      else if(value instanceof Float f){
+      else if(value instanceof Float){
+        float f = (float) value;
         if(f == 0){methodVisitor.visitInsn(FCONST_0); return;}
         else if(f == 1){methodVisitor.visitInsn(FCONST_1); return;}
         else if(f == 2){methodVisitor.visitInsn(FCONST_2); return;}
       }
-      else if(value instanceof Double d){
+      else if(value instanceof Double){
+        double d = (double) value;
         if(d == 0){methodVisitor.visitInsn(DCONST_0); return;}
         else if(d == 1){methodVisitor.visitInsn(DCONST_1); return;}
       }
@@ -894,12 +886,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     || value instanceof Short || value instanceof Character){
       int v = (int) value;
       switch(v){
-        case 0 -> {methodVisitor.visitInsn(ICONST_0); return;}
-        case 1 -> {methodVisitor.visitInsn(ICONST_1); return;}
-        case 2 -> {methodVisitor.visitInsn(ICONST_2); return;}
-        case 3 -> {methodVisitor.visitInsn(ICONST_3); return;}
-        case 4 -> {methodVisitor.visitInsn(ICONST_4); return;}
-        case 5 -> {methodVisitor.visitInsn(ICONST_5); return;}
+        case 0: methodVisitor.visitInsn(ICONST_0); return;
+        case 1: methodVisitor.visitInsn(ICONST_1); return;
+        case 2: methodVisitor.visitInsn(ICONST_2); return;
+        case 3: methodVisitor.visitInsn(ICONST_3); return;
+        case 4: methodVisitor.visitInsn(ICONST_4); return;
+        case 5: methodVisitor.visitInsn(ICONST_5); return;
       }
 
       if(v <= Byte.MAX_VALUE && v >= Byte.MIN_VALUE){
@@ -912,12 +904,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         methodVisitor.visitLdcInsn(value);
       }
     }
-    else if(value instanceof Enum<?> e){
-      IClass<?> type = ClassInfo.asType(e.getClass());
+    else if(value instanceof Enum<?>){
+      IClass<?> type = ClassInfo.asType(value.getClass());
       methodVisitor.visitFieldInsn(
           GETSTATIC,
           type.internalName(),
-          e.name(),
+          ((Enum<?>)value).name(),
           type.realName()
       );
     }
@@ -926,15 +918,18 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   protected static char getTypeChar(IClass<?> primitive, boolean foldInt){
     if(!primitive.isPrimitive()) return 'A';
 
-    return switch(primitive.realName()){
-      case "C" -> foldInt? 'I': 'C';
-      case "B" -> foldInt? 'I': 'B';
-      case "S" -> foldInt? 'I': 'S';
-      case "I", "Z" -> 'I';
-      case "J" -> 'L';
-      case "F" -> 'F';
-      case "D" -> 'D';
-      default -> throw new IllegalHandleException("unknown type name " + primitive.realName());
-    };
+    char cha = 0;
+    switch(primitive.realName()){
+      case "C": cha = foldInt? 'I': 'C'; break;
+      case "B": cha = foldInt? 'I': 'B'; break;
+      case "S": cha = foldInt? 'I': 'S'; break;
+      case "Z":
+      case "I": cha = 'I'; break;
+      case "J": cha = 'L'; break;
+      case "F": cha = 'F'; break;
+      case "D": cha = 'D'; break;
+      default: throw new IllegalHandleException("unknown type name " + primitive.realName());
+    }
+    return cha;
   }
 }

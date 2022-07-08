@@ -12,15 +12,8 @@ repositories {
   maven{ url 'https://www.jitpack.io' }
 }
 
-tasks.withType(JavaCompile){
-  options.compilerArgs.addAll([
-      "--release", '11'
-  ])
-}
-
 dependencies {
   implementation 'org.ow2.asm:asm:9.3'
-  annotationProcessor "com.github.Anuken:jabel:0.7.0"
 }
 
 test {

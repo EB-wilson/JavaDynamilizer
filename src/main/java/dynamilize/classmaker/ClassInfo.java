@@ -160,8 +160,8 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     super(primitive.getName());
     if(!primitive.isPrimitive() && primitive != Object.class) throw new IllegalArgumentException(primitive + " was not a primitive class");
 
-    interfaces = List.of();
-    elements = List.of();
+    interfaces = new ArrayList<>();
+    elements = new ArrayList<>();
 
     clazz = primitive;
 
@@ -176,8 +176,8 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
       isPrimitive = false;
     }
     else{
-      fieldMap = Map.of();
-      methodMap = Map.of();
+      fieldMap = new HashMap<>();
+      methodMap = new HashMap<>();
 
       setModifiers(Modifier.PUBLIC|Modifier.FINAL);
 
@@ -222,7 +222,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
 
     setModifiers(modifiers);
     this.superClass = superClass;
-    this.interfaces = List.of(interfaces);
+    this.interfaces = Arrays.asList(interfaces);
 
     elements = new ArrayList<>();
     fieldMap = new HashMap<>();
@@ -238,9 +238,9 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     super(comp.name() + "[]");
 
     superClass = OBJECT_TYPE;
-    elements = List.of();
-    methodMap = Map.of();
-    fieldMap = Map.of();
+    elements = new ArrayList<>();
+    methodMap = new HashMap<>();
+    fieldMap = new HashMap<>();
 
     realName = "[" + comp.realName;
 
@@ -267,13 +267,13 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
   @Override
   @SuppressWarnings({"rawtypes", "unchecked"})
   public <A extends Annotation> AnnotationType<A> asAnnotation(Map<String, Object> defaultAttributes){
-    if(defaultAttributes == null) defaultAttributes = Map.of();
+    if(defaultAttributes == null) defaultAttributes = new HashMap<>();
     checkAnnotation(defaultAttributes);
 
     Map<String, Object> map = defaultAttributes;
     return
         annotationType != null? (AnnotationType<A>) annotationType : (AnnotationType<A>) (annotationType = new AnnotationType<A>(){
-          final Map<String,Object> def = Map.copyOf(map);
+          final Map<String,Object> def = new HashMap<>(map);
 
           @Override
           public IClass<A> typeClass(){
@@ -654,8 +654,9 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
 
     Map<String, Object> map = new HashMap<>(defAttributes);
     for(Element element: elements()){
-      if(!(element instanceof IMethod<?,?> met) || !Modifier.isAbstract(met.modifiers()))
+      if(!(element instanceof IMethod<?,?>) || !Modifier.isAbstract(((IMethod<?, ?>) element).modifiers()))
         throw new IllegalHandleException("clazz " + this + " was not a annotation type");
+      IMethod<?, ?> met = (IMethod<?, ?>) element;
 
       IClass<?> type = met.returnType();
       if((!isReferenceType(type) && !type.equals(STRING_TYPE))
@@ -697,7 +698,8 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
   @Override
   public boolean equals(Object o){
     if(this == o) return true;
-    if(!(o instanceof ClassInfo<?> classInfo)) return false;
+    if(!(o instanceof ClassInfo<?>)) return false;
+    ClassInfo<?> classInfo = (ClassInfo<?>) o;
     return Objects.equals(clazz, classInfo.clazz) && realName.equals(classInfo.realName);
   }
 
