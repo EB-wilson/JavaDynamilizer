@@ -255,7 +255,7 @@ public abstract class DynamicMaker{
    * @param interfaces 接口列表
    * @return 由基类名称与全部接口名称的哈希值构成的打包名称*/
   public static <T> String getDynamicName(Class<T> baseClass, Class<?>... interfaces){
-    return baseClass.getName() + "$dynamic$" + Arrays.stream(interfaces).map(Class::getName).toList().hashCode();
+    return baseClass.getName() + "$dynamic$" + Arrays.hashCode(Arrays.stream(interfaces).map(Class::getName).toArray());
   }
 
   /**创建动态实例类型的类型标识，这应当覆盖所有委托目标类的方法和实现的接口中的方法，若超类的某一成员方法不是抽象的，需保留对超类方法的入口，

@@ -821,28 +821,26 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   }
 
   protected int getStoreType(IClass<?> type){
-    return !type.isPrimitive()? ASTORE:
-        type == ClassInfo.INT_TYPE || type == ClassInfo.BYTE_TYPE
-            || type == ClassInfo.SHORT_TYPE || type == ClassInfo.BOOLEAN_TYPE
-            || type == ClassInfo.CHAR_TYPE? ISTORE:
-        type == ClassInfo.LONG_TYPE? LSTORE:
-        type == ClassInfo.DOUBLE_TYPE? DSTORE:
-        type == ClassInfo.FLOAT_TYPE? FSTORE: -1;
+    return typeSelect(type, ASTORE, ISTORE, LSTORE, DSTORE, FSTORE);
   }
 
   protected int getLoadType(IClass<?> type){
-    return !type.isPrimitive()? ALOAD:
+    return typeSelect(type, ALOAD, ILOAD, LLOAD, DLOAD, FLOAD);
+  }
+
+  private static int typeSelect(IClass<?> type, int aload, int iload, int lload, int dload, int fload){
+    return !type.isPrimitive()? aload :
         type == ClassInfo.INT_TYPE || type == ClassInfo.BYTE_TYPE
             || type == ClassInfo.SHORT_TYPE || type == ClassInfo.BOOLEAN_TYPE
-            || type == ClassInfo.CHAR_TYPE? ILOAD:
-        type == ClassInfo.LONG_TYPE? LLOAD:
-        type == ClassInfo.DOUBLE_TYPE? DLOAD:
-        type == ClassInfo.FLOAT_TYPE? FLOAD: -1;
+            || type == ClassInfo.CHAR_TYPE? iload :
+        type == ClassInfo.LONG_TYPE? lload :
+        type == ClassInfo.DOUBLE_TYPE? dload :
+        type == ClassInfo.FLOAT_TYPE? fload : -1;
   }
 
   protected void visitConstant(Object value){
     if(value.getClass().isArray()){
-      Class<?> componentType = value.getClass().componentType();
+      Class<?> componentType = value.getClass().getComponentType();
 
       if(componentType.isPrimitive() || componentType == String.class || componentType.isEnum() || componentType.isArray()){
         int opc;

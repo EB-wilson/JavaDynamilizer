@@ -24,13 +24,18 @@ public class FieldInfo<T> extends AnnotatedMember implements IField<T>{
     if(initial != null && !Modifier.isStatic(modifiers))
       throw new IllegalArgumentException("cannot initial a constant to non-static field");
 
-    if(initial != null && (!(initial instanceof Number)
-    && !(initial instanceof Boolean)
-    && !(initial instanceof String)
-    && !(initial instanceof Character)
-    && (!initial.getClass().isArray() || (!initial.getClass().componentType().isPrimitive() && !initial.getClass().componentType().equals(String.class)))
-    && !(initial instanceof Enum<?>))){
-      throw new IllegalArgumentException("initial must be a primitive, String or array, Enum, if array, it type should be primitive, enum or String");
+    if(initial != null){
+      Class<?> initType = initial.getClass();
+
+      if(!(initial instanceof Number)
+          && !(initial instanceof Boolean)
+          && !(initial instanceof String)
+          && !(initial instanceof Character)
+          && (!initType.isArray() || (!initType.getComponentType().isPrimitive() && !initType.getComponentType().equals(String.class)))
+          && !(initial instanceof Enum<?>)){
+        throw new IllegalArgumentException("initial must be a primitive, String or array, Enum, if array, it type should be primitive, enum or String");
+      }
+
     }
   }
 

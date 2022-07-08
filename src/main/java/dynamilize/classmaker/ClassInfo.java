@@ -134,7 +134,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     ClassInfo<T> res = (ClassInfo<T>) classMap.get(clazz);
 
     if(res == null){
-      res = clazz.isArray()? new ClassInfo<>(asType(clazz.componentType())): new ClassInfo<>(
+      res = clazz.isArray()? new ClassInfo<>(asType(clazz.getComponentType())): new ClassInfo<>(
           clazz.getModifiers(),
           clazz.getName(),
           clazz.getSuperclass() == null? null: clazz.getSuperclass().equals(Object.class)? OBJECT_TYPE : asType(clazz.getSuperclass()),
@@ -254,7 +254,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     ClassInfo<T[]> res = arrayType;
     if(res == null){
       if(clazz != null){
-        res = arrayType = (ClassInfo<T[]>) asType(clazz.arrayType());
+        res = arrayType = (ClassInfo<T[]>) asType(Array.newInstance(clazz, 0).getClass());
       }
       else res = arrayType = new ClassInfo<>(this);
     }
@@ -377,13 +377,13 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
   /**此类型标识是否为已有类型标识
    *
    * @return 若标记的类已被JVM加载*/
-  @SuppressWarnings({"unchecked"})
   @Override
+  @SuppressWarnings({"unchecked", "unchecked"})
   public boolean isExistedClass(){
     if(clazz != null) return true;
 
     if(componentType != null && componentType.isExistedClass()){
-      clazz = (Class<T>) componentType.clazz.arrayType();
+      clazz = (Class<T>) Array.newInstance(componentType.clazz, 0).getClass();
       return true;
     }
 
