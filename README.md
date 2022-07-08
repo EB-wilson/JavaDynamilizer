@@ -3,11 +3,11 @@
 ****
 要引用JavaDynamilizer部署项目，你只需要在项目依赖中添加对此仓库的依赖：
 
-    dependencies{
+    dependencies {
       ......
-      implemention 'com.github.EB-wilson:java-dynamilizer:$version'
+	  implementation 'com.github.EB-wilson:JavaDynamilizer:$version'
       ......
-    }
+	}
 
 ## 基本使用
 创建一个最简单的动态实例，它委托自java类HashMap:
