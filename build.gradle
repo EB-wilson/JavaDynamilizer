@@ -16,6 +16,14 @@ dependencies {
   implementation 'org.ow2.asm:asm:9.3'
 }
 
-test {
-  useJUnitPlatform()
+publishing {
+  publications {
+    maven(MavenPublication) {
+      from components.java
+    }
+  }
+}
+
+assemble{
+  dependsOn(shadowJar)
 }
