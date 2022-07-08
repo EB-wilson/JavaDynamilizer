@@ -62,6 +62,7 @@ public interface DynamicObject<Self>{
   /**以lambda模式设置对象的成员函数，lambda模式下对对象的函数变更仅对此对象有效，变更即时生效,
    * 若需要使变更对所有实例都生效，则应当对此对象的动态类型引用{@link DynamicClass#visitClass(Class)}方法变更行为样版
    * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#set(String, Function, Class[])}方法，并将参数一一对应传入
+   * <p><strong>注意，含有泛型的参数，无论类型参数如何，形式参数类型始终为{@link Object}</strong>
    *
    * @param name 设置的函数名称
    * @param func 描述函数行为的匿名函数
@@ -87,5 +88,14 @@ public interface DynamicObject<Self>{
     }finally{
       ArgumentList.recycle(lis);
     }
+  }
+
+  /**直接传入{@link ArgumentList}作为实参列表的函数调用，方法内完成拆箱，便于在匿名函数中对另一函数进行引用而无需拆箱
+   *
+   * @param name 函数名称
+   * @param args 是按列表的封装对象
+   * @return 函数返回值*/
+  default  <R> R invokeFunc(String name, ArgumentList args){
+    return invokeFunc(name, args.args());
   }
 }

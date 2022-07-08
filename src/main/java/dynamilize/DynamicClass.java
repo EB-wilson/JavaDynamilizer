@@ -52,23 +52,30 @@ public class DynamicClass{
   /**此动态类的直接超类*/
   private final DynamicClass superDyClass;
 
-  private final Map<String, Map<FunctionType, MethodEntry>> methods = new HashMap<>();
+  private final Map<String, Map<FunctionType, MethodEntry>> functions = new HashMap<>();
   private final Map<String, Initializer<?>> varInit = new HashMap<>();
 
   /**废弃标记，在类型已废弃后，不可再实例化此类型*/
   private boolean isObsoleted;
 
-  /**获取动态类实例，如果此名称指明的类型不存在则使用给出的名称创建一个新的动态类
+  /**声明一个动态类型，如果此名称指明的类型不存在则使用给出的名称创建一个新的动态类
    *
    * @param name 类型的唯一限定名称
    * @param superDyClass 此动态类型的直接超类
-   * @return 一个具有指定名称的动态类实例*/
-  public static DynamicClass get(String name, DynamicClass superDyClass){
-    return classPool.computeIfAbsent(name, n -> new DynamicClass(n, superDyClass));
+   * @return 一个具有指定名称的动态类实例
+   *
+   * @throws IllegalHandleException 如果具有 该名称的类型已经存在*/
+  public static DynamicClass declare(String name, DynamicClass superDyClass){
+    if(classPool.containsKey(name))
+      throw new IllegalHandleException("cannot declare two dynamic class with same name");
+
+    DynamicClass dyc = new DynamicClass(name, superDyClass);
+    classPool.put(name, dyc);
+    return dyc;
   }
 
   /**获取动态类实例，如果此名称指明的类型不存在则使用给出的名称创建一个新的动态类
-   * <p>从此方法创建的新类没有明确的直接超类，实例将以委托的基类作为直接超类
+   * <p>从此方法创建的新类没有明确的直接超类，实例将以委托的基类作为直接超类，若需要具有明确的直接超类的类型，请使用{@link DynamicClass#declare(String, DynamicClass)}声明
    *
    * @param name 类型的唯一限定名称
    * @return 一个具有指定名称的动态类实例*/
@@ -115,10 +122,13 @@ public class DynamicClass{
   <T> void initInstance(DataPool<T> pool){
     checkFinalized();
 
-    for(Map<FunctionType, MethodEntry> map: methods.values()){
+    for(Map<FunctionType, MethodEntry> map: functions.values()){
       for(MethodEntry entry: map.values()){
         FunctionType type = entry.getType();
-        pool.set(entry.getName(), (self, args) -> map.get(type).getFunction().invoke(self, args), entry.getType().getTypes());
+        pool.set(
+            entry.getName(),
+            entry.modifiable()? (self, args) -> map.get(type).getFunction().invoke(self, args): entry.getFunction(),
+            entry.getType().getTypes());
       }
     }
 
@@ -157,9 +167,9 @@ public class DynamicClass{
 
       if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers())) continue;
 
-      MethodEntry methodEntry = new MethodEntry(method);
+      MethodEntry methodEntry = new JavaMethodEntry(method);
 
-      Map<FunctionType, MethodEntry> map = methods.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>());
+      Map<FunctionType, MethodEntry> map = functions.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>());
 
       MethodEntry existed = map.get(methodEntry.getType());
       if(existed != null && !existed.modifiable()) continue;
@@ -184,9 +194,9 @@ public class DynamicClass{
     if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers()))
       throw new IllegalHandleException("method template must be public and static");
 
-    MethodEntry methodEntry = new MethodEntry(method);
+    MethodEntry methodEntry = new JavaMethodEntry(method);
 
-    Map<FunctionType, MethodEntry> map = methods.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>());
+    Map<FunctionType, MethodEntry> map = functions.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>());
 
     MethodEntry existed = map.get(methodEntry.getType());
     if(existed != null && !existed.modifiable())
@@ -204,6 +214,51 @@ public class DynamicClass{
       throw new IllegalHandleException("field template must be public and static");
 
     setVariableWithField(field);
+  }
+
+  /**以lambda模式设置函数，使用匿名函数描述类型行为，对类型行为变更的效果与{@link DynamicClass#visitClass(Class)}的方法部分相同
+   *
+   * @param name 函数名称
+   * @param func 描述函数行为的匿名函数
+   * @param argTypes 函数的形式参数类型*/
+  public void setFunction(String name, Function<?, ?> func, Class<?>... argTypes){
+    FunctionType type = FunctionType.inst(argTypes);
+    functions.computeIfAbsent(name, n -> new HashMap<>())
+        .put(type, new FunctionEntry<>(name, true, func, type));
+  }
+
+  /**以lambda模式设置函数，与{@link DynamicClass#setFunction(String, Function, Class[])}相同，但设置的函数不再可变
+   *
+   * @param name 函数名称
+   * @param func 描述函数行为的匿名函数
+   * @param argTypes 函数的形式参数类型*/
+  public void setFinalFunc(String name, Function<?, ?> func, Class<?>... argTypes){
+    Map<FunctionType, MethodEntry> map = functions.computeIfAbsent(name, n -> new HashMap<>());
+    FunctionType type = FunctionType.inst(argTypes);
+
+    MethodEntry existed = map.get(type);
+    if(existed != null && !existed.modifiable())
+      throw new IllegalHandleException("cannot modify a final method existed");
+
+    map.put(type, new FunctionEntry<>(name, false, func, type));
+  }
+
+  /**常量模式设置变量初始值，行为与{@link DynamicClass#visitClass(Class)}字段部分相同
+   *
+   * @param name 变量名称
+   * @param value 常量值
+   * @param isConst 此变量是否是一个不可变常量*/
+  public void setVariable(String name, Object value, boolean isConst){
+    setVariable(name, () -> value, isConst);
+  }
+
+  /**函数模式设置变量初始化工厂，行为与{@link DynamicClass#visitClass(Class)}字段部分相同
+   *
+   * @param name 变量名称
+   * @param prov 生产变量初始值的工厂函数
+   * @param isConst 此变量是否是一个不可变常量*/
+  public void setVariable(String name, Initializer.Producer<?> prov, boolean isConst){
+    varInit.put(name, new Initializer<>(prov, isConst));
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})

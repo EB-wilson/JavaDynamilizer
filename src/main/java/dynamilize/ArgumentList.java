@@ -7,7 +7,15 @@ import java.util.Stack;
  *
  * @author EBwilson */
 public class ArgumentList{
-  private static final int MAX_INSTANCE_STACK = 128;
+  public static final Object[][] argLenArray = new Object[32][];
+
+  static {
+    for(int i = 0; i < argLenArray.length; i++){
+      argLenArray[i] = new Object[i];
+    }
+  }
+
+  private static final int MAX_INSTANCE_STACK = 2048;
 
   private static final Stack<ArgumentList> INSTANCES = new Stack<>();
 

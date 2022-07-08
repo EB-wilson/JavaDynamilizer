@@ -19,6 +19,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
+import static dynamilize.ArgumentList.argLenArray;
+
 /**动态类型运作的核心工厂类型，用于将传入的动态类型与委托基类等构造出动态委托类型以及其实例。
  * <p>定义了基于{@link ASMGenerator}的默认生成器实现，通过{@link DynamicMaker#getDefault()}获取该实例以使用
  * <p>若需要特殊的实现，则需要重写/实现此类的方法，主要的方法：
@@ -198,13 +200,13 @@ public abstract class DynamicMaker{
         try{
           MethodHandle handle = lookup.unreflect(method);
 
-          List<Object> arg = new ArrayList<>();
-
           basePool.set(name, (self, args) -> {
+            Object[] argArr = args.args();
+            Object[] arg = argLenArray[argArr.length + 1];
+            arg[0] = self;
+            System.arraycopy(argArr, 0, arg, 1, argArr.length);
+
             try{
-              arg.clear();
-              arg.add(self);
-              arg.addAll(List.of(args.args()));
               return handle.invokeWithArguments(arg);
             }catch(Throwable e){
               throw new RuntimeException(e);

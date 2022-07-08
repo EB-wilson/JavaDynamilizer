@@ -153,24 +153,32 @@ public class DataPool<Owner>{
   public class ReadOnlyPool{
     private ReadOnlyPool(){}
 
-    public <T> T get(String name){
+    /**@see DynamicObject#getVar(String)*/
+    public <T> T getVar(String name){
       return DataPool.this.get(name);
     }
 
-    public <R> Function<Owner, R> select(String name, FunctionType type){
+    /**@see DynamicObject#getFunc(String, FunctionType)*/
+    public <R> Function<Owner, R> getFunc(String name, FunctionType type){
       return DataPool.this.select(name, type);
     }
 
+    /**@see DynamicObject#invokeFunc(String, Object...)*/
     public <R> R invokeFunc(String name, Object... args){
       FunctionType type = FunctionType.inst(args);
       ArgumentList lis = ArgumentList.as(args);
 
       try{
-        return (R) select(name, type).invoke(owner, lis);
+        return (R) getFunc(name, type).invoke(owner, lis);
       }finally{
         ArgumentList.recycle(lis);
         type.recycle();
       }
+    }
+
+    /**@see DynamicObject#invokeFunc(String, ArgumentList)*/
+    public <R> R invokeFunc(String name, ArgumentList args){
+      return invokeFunc(name, args.args());
     }
   }
 }
