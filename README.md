@@ -44,7 +44,7 @@
 
     DynamicClass Demo = DynamicClass.get("Demo");
 
-动态类型也有它的超类，距离这个动态类型最近的一个超类称为此类的**直接超类**，对于上述例子的`dyClass`，它的直接超类没有被明确确定，则它的直接超类为构造实例进行委托的java类；若有确定的直接超类：
+动态类型也有它的超类，距离这个动态类型最近的一个超类称为此类的**直接超类**，对于上述例子的`Demo`类，它的直接超类没有被明确确定，则它的直接超类为构造实例进行委托的java类；若有确定的直接超类：
 
     DynamicClass DemoChild = DynamicClass.declare("DemoChild", dyClass);
 
