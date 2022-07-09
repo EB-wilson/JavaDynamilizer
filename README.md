@@ -16,6 +16,7 @@
     HashMap<?, ?> map = DynamicMaker.getDefault().newInstance(HashMap.class, Demo);
 
 其中，map对象具有所有hashMap的行为并且可以分配给HashMap字段或者参数。而本工具的重点在于动态化实例，上面创建的map实例已经被动态化，它具有`dynamilize.DynamicObject`的特征，对于此对象已经可以进行行为变更和代码插桩了。
+
 例如，接下来我们对上面的map的`put`方法添加一个监视，使任何时候向该映射中添加映射都会将这个键值对打印出来：
 
     DynamicObject<HashMap<?, ?>> dyMap = (DynamicObject<HashMap<?,?>>)map;
@@ -49,7 +50,8 @@
     DynamicClass DemoChild = DynamicClass.declare("DemoChild", dyClass);
 
 直接超类与java类的类层次结构行为基本一致，即遵循原则：**引用一个函数或者变量时，以最接近此类型的超类优先被访问**。
-下面，将讨论如何设置动态类型的行为。
+
+下面，将讨论如何设置动态类型的行为。  
 动态类型的行为主要由函数和变量构成，对于对于函数设置有**访问样版模式**和**lambda模式**，对于变量，则有**访问样版模式**和**函数模式**以及**常量模式**，不同的模式有各自的应用场景和使用方法：
 
 先创建一个新的动态类：
@@ -59,7 +61,7 @@
 - **函数**
 
 **访问样版模式**
-即使用java类型描述一定的行为，用动态类型去访问这个java类型。
+即使用java类型描述一定的行为，用动态类型去访问这个java类型。  
 例如声明一个类型用作样版：
 
     public class Template{
@@ -74,7 +76,7 @@
     DynamicObject<?> dyObj = DynamicMaker.getDefault().newInstance(Sample);
     dyObj.invokeFunc("run");
 
-这将会在系统输出流中打印`hello world`。
+这将会在系统输出流中打印`hello world`。  
 访问类型样版会描述类型中声明的所有未排除的public static方法，如果你需要针对某一方法访问，则可以通过反射获取方法对象，使用`Sample.visitMethod(*reflection method*)`方法对方法进行单独访问。
 ****
 **lambda模式**
@@ -89,7 +91,7 @@
 - **变量**
 
 **访问样板模式**
-与函数的访问样板模式类似，只是函数访问的是方法，而变量要访问的是字段
+与函数的访问样板模式类似，只是函数访问的是方法，而变量要访问的是字段  
 例如，定义样板类型：
 
     public class Template{
@@ -102,8 +104,8 @@
     DynamicObject<?> dyObj = DynamicMaker.getDefault().newInstance(Sample);
     System.out.println(dyObject.getVar("var1"));
 
-这会在系统输出流种打印`hello world`。
-与方法相同，访问一个类型样板会访问其中的所有public static字段，若需要就某一字段进行访问，则可以对反射获取的字段对象使用`Sample.visitField(*reflection field*)`方法来访问指定的字段。
+这会在系统输出流种打印`hello world`。  
+与方法相同，访问一个类型样板会访问其中的所有public static字段，若需要就某一字段进行访问，则可以对反射获取的字段对象使用`Sample.visitField(*reflection field*)`方法来访问指定的字段。  
 另外，字段的访问样版可以被设置为函数：
 
     public class Template{
@@ -126,7 +128,7 @@
 
     Sample.setVariable("time", () -> System.nanoTime(), false);
 
-则会使得对象的`time`变量与对象被创建时的系统纳秒计数一致。
+则会使得对象的`time`变量与对象被创建时的系统纳秒计数一致。  
 函数与常量模式参数尾部的布尔值是确定此变量是否为**常量**，若为true，则此变量不可被改变。
 ****
 动态类型的行为声明是可变的，但这个可变对于实例的影响有一定的范围，以下列举主要的情况：
