@@ -24,7 +24,7 @@
       System.out.println("map putted, key: " + args.get(0) + ", value: " + args.get(1) + ".");
     }, Object.class, Objec.class);
 
-这时，如果我们执行`map.put("first", "hello world")`，那么我们会在系统输出流中收到如下信息：
+这时，如果执行`map.put("first", "hello world")`，那么会在系统输出流中收到如下信息：
 
     map putted, key: first, value: hello world.
 
