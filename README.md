@@ -47,7 +47,7 @@
 
 动态类型也有它的超类，距离这个动态类型最近的一个超类称为此类的**直接超类**，对于上述例子的`Demo`类，它的直接超类没有被明确确定，则它的直接超类为构造实例进行委托的java类；若有确定的直接超类：
 
-    DynamicClass DemoChild = DynamicClass.declare("DemoChild", dyClass);
+    DynamicClass DemoChild = DynamicClass.declare("DemoChild", Demo);
 
 直接超类与java类的类层次结构行为基本一致，即遵循原则：**引用一个函数或者变量时，以最接近此类型的超类优先被访问**。
 
