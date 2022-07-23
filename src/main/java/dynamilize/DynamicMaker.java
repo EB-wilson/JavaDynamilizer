@@ -305,7 +305,7 @@ public abstract class DynamicMaker{
     for(Constructor<?> cstr: baseClass.getDeclaredConstructors()){
       if((cstr.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) continue;
 
-      List<Parameter<?>> params = Arrays.asList(Parameter.as(paramBase));
+      List<Parameter<?>> params = new ArrayList<>(Arrays.asList(Parameter.as(paramBase)));
       List<Parameter<?>> superParams = Arrays.asList(Parameter.asParameter(cstr.getParameters()));
       params.addAll(superParams);
 

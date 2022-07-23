@@ -2,34 +2,12 @@ import java.lang.annotation.*;
 
 @AnnoTest(value = {8778493766284947234L, 7876556374L})
 public class Demo{
-  private static Types t = Types.aS;
-  private static Types[] ts = {Types.aS, Types.bS};
+    Object[][][] arr;
 
-  @AnnoTest(9)
-  private String IN;
+    public void set(){
+      arr = new Object[1][3][6];
+    }
 
-  Demo o;
-
-  String[] a = {"78", "77"};
-
-  public Demo(final String name, Object data){}
-
-  public static void main(String[] args){
-
-  }
-
-  public void test(){
-    a[0] = "uju";
-
-    int a = (int) o.annotationType();
-
-    System.out.println("i");
-  }
-
-  public Object annotationType(Object... o){
-    super.toString();
-    return 8;
-  }
 }
 
 @Target({ElementType.TYPE,ElementType.FIELD})
