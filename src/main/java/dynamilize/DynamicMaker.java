@@ -149,9 +149,10 @@ public abstract class DynamicMaker{
       List<Object> argsLis = new ArrayList<>(Arrays.asList(dynamicClass, genPool(clazz, dynamicClass)));
       argsLis.addAll(Arrays.asList(args));
 
-      Constructor<?> cstr = clazz.getDeclaredConstructor(argsLis.stream().map(Object::getClass).toArray(Class[]::new));
+      Constructor<?> cstr = clazz.getDeclaredConstructor(
+          FunctionType.unwrapped(argsLis.stream().map(Object::getClass).toArray(Class[]::new))
+      );
       FunctionType type = FunctionType.inst(cstr.getParameterTypes());
-
       T inst = (T) constructors.computeIfAbsent(clazz, e -> new HashMap<>()).computeIfAbsent(type, t -> {
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         try{
