@@ -75,18 +75,26 @@ public interface DynamicObject<Self>{
    * @param args 传递给函数的实参列表
    * @return 函数返回值*/
   default <R> R invokeFunc(String name, Object... args){
-    FunctionType type = FunctionType.inst(args);
-    Function<Self, R> res = getFunc(name, type);
-    type.recycle();
-
-    if(res == null)
-      throw new IllegalHandleException("no such method declared: " + name);
-
     ArgumentList lis = ArgumentList.as(args);
     try{
-      return res.invoke((Self) this, lis);
+      return invokeFunc(name, lis);
     }finally{
-      ArgumentList.recycle(lis);
+      lis.type().recycle();
+      lis.recycle();
+    }
+  }
+  
+  /**指明形式参数列表执行对象的指定成员函数，如果参数中有从类型分配的对象或者null值，使用type明确指定形参类型可以有效提升执行效率
+   *
+   * @param name 函数名称
+   * @param args 传递给函数的实参列表
+   * @return 函数返回值*/
+  default <R> R invokeFunc(FunctionType type, String name, Object... args){
+    ArgumentList lis = ArgumentList.asWithType(type, args);
+    try{
+      return invokeFunc(name, lis);
+    }finally{
+      lis.recycle();
     }
   }
 
@@ -96,6 +104,12 @@ public interface DynamicObject<Self>{
    * @param args 是按列表的封装对象
    * @return 函数返回值*/
   default  <R> R invokeFunc(String name, ArgumentList args){
-    return invokeFunc(name, args.args());
+    FunctionType type = args.type();
+    Function<Self, R> res = getFunc(name, type);
+
+    if(res == null)
+      throw new IllegalHandleException("no such method declared: " + name);
+
+    return res.invoke((Self) this, args);
   }
 }

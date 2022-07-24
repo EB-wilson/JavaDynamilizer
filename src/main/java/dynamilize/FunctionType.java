@@ -62,7 +62,7 @@ public class FunctionType{
   }
 
   public static FunctionType inst(Object... param){
-    return inst(unwrapped(Arrays.stream(param).map(Object::getClass).toArray(Class[]::new)));
+    return inst(unwrapped(Arrays.stream(param).map(e -> e == null? Void.class: e.getClass()).toArray(Class[]::new)));
   }
 
   public static FunctionType from(MethodType type){
@@ -75,18 +75,19 @@ public class FunctionType{
 
   public static FunctionType generic(int argCount){
     Class<?>[] argTypes = new Class[argCount];
-    Arrays.fill(argTypes, Object.class);
+    Arrays.fill(argTypes, Void.class);
     return inst(argTypes);
   }
 
   public boolean match(Object... args){
-    return match(unwrapped(Arrays.stream(args).map(Object::getClass).toArray(Class[]::new)));
+    return match(unwrapped(Arrays.stream(args).map(e -> e == null? Void.class: e.getClass()).toArray(Class[]::new)));
   }
 
   public boolean match(Class<?>... argsType){
     if(argsType.length != paramType.length) return false;
 
     for(int i = 0; i < paramType.length; i++){
+      if(argsType[i] == Void.class) continue;
       if(!paramType[i].isAssignableFrom(argsType[i])) return false;
     }
 

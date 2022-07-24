@@ -98,14 +98,6 @@ public class DataPool<Owner>{
     var.poolAdded(this);
   }
 
-  /**获取具有给出名称的所有函数组成的容器，以{@link FunctionType}映射到此函数来确定函数的参数表
-   *
-   * @param name 函数具有的名称
-   * @return 函数参数类型与函数的映射*/
-  protected Map<FunctionType, Function<Owner, ?>> getFunctions(String name){
-    return funcPool.getOrDefault(name, superPool == null? null: superPool.getFunctions(name));
-  }
-
   /**从类层次结构中获取变量的对象
    *
    * @param name 变量名
@@ -135,12 +127,19 @@ public class DataPool<Owner>{
    * @throws NoSuchMethodError 若指定的函数未被定义*/
   @SuppressWarnings("rawtypes")
   public <R> Function<Owner, R> select(String name, FunctionType type){
-    Map<FunctionType, Function<Owner, R>> map = (Map) getFunctions(name);
-    if(map == null) return null;
+    Map<FunctionType, Function<Owner, R>> map = (Map) funcPool.get(name);
+    if(map != null){
+      Function<Owner, R> res = map.get(type);
+      type.recycle();
+      if(res != null) return res;
 
-    Function<Owner, R> res = map.get(type);
-    type.recycle();
-    if(res != null) return res;
+      for(Map.Entry<FunctionType, Function<Owner, R>> entry: map.entrySet()){
+        if(entry.getKey().match(type.getTypes())){
+          return entry.getValue();
+        }
+      }
+    }
+    superPool.select(name, type);
 
     throw new NoSuchMethodError("no such method with name " + name);
   }
@@ -165,20 +164,29 @@ public class DataPool<Owner>{
 
     /**@see DynamicObject#invokeFunc(String, Object...)*/
     public <R> R invokeFunc(String name, Object... args){
-      FunctionType type = FunctionType.inst(args);
       ArgumentList lis = ArgumentList.as(args);
-
       try{
-        return (R) getFunc(name, type).invoke(owner, lis);
+        return invokeFunc(name, lis);
       }finally{
-        ArgumentList.recycle(lis);
-        type.recycle();
+        lis.type().recycle();
+        lis.recycle();
+      }
+    }
+
+    public <R> R invokeFunc(FunctionType type, String name, Object... args){
+      ArgumentList lis = ArgumentList.asWithType(type, args);
+      try{
+        return invokeFunc(name, lis);
+      }finally{
+        lis.recycle();
       }
     }
 
     /**@see DynamicObject#invokeFunc(String, ArgumentList)*/
     public <R> R invokeFunc(String name, ArgumentList args){
-      return invokeFunc(name, args.args());
+      FunctionType type = FunctionType.inst(args);
+
+      return (R) getFunc(name, type).invoke(owner, args);
     }
   }
 }
