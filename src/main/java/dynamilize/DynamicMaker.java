@@ -372,7 +372,7 @@ public abstract class DynamicMaker{
           ): null;
 
           // public *returnType* *name*(*parameters*){
-          //   *[return]* this.invoke("*name*", parameters);
+          //   *[return]* this.invokeFunc("*name*", parameters);
           // }
           {
             CodeBlock<?> code = classInfo.declareMethod(
@@ -394,7 +394,7 @@ public abstract class DynamicMaker{
             ILocal<Integer> index = code.local(ClassInfo.INT_TYPE);
             for(int i = 0; i < code.getParamList().size(); i++){
               code.loadConstant(index, i);
-              code.arrayPut(params, index, code.getParam(i));
+              code.arrayPut(params, index, code.getRealParam(i));
             }
 
             if(returnType != ClassInfo.VOID_TYPE){

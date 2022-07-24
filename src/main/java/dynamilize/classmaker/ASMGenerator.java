@@ -280,67 +280,11 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       }
     }
     else{
-      if(!type.isPrimitive() && invoke.returnTo().type().isPrimitive()){
-        warpAssign(invoke.returnTo().type());
-      }
+      castAssign(type, invoke.returnTo().type());
 
       methodVisitor.visitVarInsn(
           getStoreType(invoke.returnTo().type()),
           localIndex.get(invoke.returnTo().name())
-      );
-    }
-  }
-
-  protected void warpAssign(IClass<?> returnType){
-    if(!returnType.isPrimitive())
-      throw new IllegalHandleException("cannot warp non-primitive");
-
-    if(returnType == ClassInfo.INT_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Integer");
-      methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Integer", "intValue", "()I", false
-      );
-    }
-    if(returnType == ClassInfo.FLOAT_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Float");
-      methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Float", "floatValue", "()F", false
-      );
-    }
-    if(returnType == ClassInfo.BYTE_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Byte");
-      methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Byte", "byteValue", "()B", false
-      );
-    }
-    if(returnType == ClassInfo.SHORT_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Short");
-      methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Short", "shortValue", "()S", false
-      );
-    }
-    if(returnType == ClassInfo.LONG_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Long");
-      methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Long", "longValue", "()J", false
-      );
-    }
-    if(returnType == ClassInfo.DOUBLE_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Double");
-      methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Double", "doubleValue", "()D", false
-      );
-    }
-    if(returnType == ClassInfo.BOOLEAN_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Boolean");
-      methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false
-      );
-    }
-    if(returnType == ClassInfo.CHAR_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Character");
-      methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Character", "charValue", "()C", false
       );
     }
   }
@@ -357,6 +301,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         getField.source().name(),
         getField.source().type().realName()
     );
+
+    castAssign(getField.source().type(), getField.target().type());
 
     methodVisitor.visitVarInsn(
         getStoreType(getField.source().type()),
@@ -375,6 +321,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         localIndex.get(putField.source().name())
     );
 
+    castAssign(putField.source().type(), putField.target().type());
+
     methodVisitor.visitFieldInsn(
         Modifier.isStatic(putField.target().modifiers())? PUTSTATIC: PUTFIELD,
         putField.target().owner().internalName(),
@@ -389,6 +337,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         getLoadType(localSet.source().type()),
         localIndex.get(localSet.source().name())
     );
+
+    castAssign(localSet.source().type(), localSet.target().type());
 
     methodVisitor.visitVarInsn(
         getStoreType(localSet.target().type()),
@@ -483,13 +433,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitCast(ICast cast){
-    int opc = CASTTABLE.get(getTypeChar(cast.source().type(), true)).get(getTypeChar(cast.target().type(), false));
     methodVisitor.visitVarInsn(
         getLoadType(cast.source().type()),
         localIndex.get(cast.source().name())
     );
 
-    methodVisitor.visitInsn(opc);
+    castAssign(cast.source().type(), cast.target().type());
 
     methodVisitor.visitVarInsn(
         getStoreType(cast.target().type()),
@@ -579,6 +528,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
     methodVisitor.visitInsn(loadType);
 
+    castAssign(arrayGet.array().type().componentType(), arrayGet.getTo().type());
+
     methodVisitor.visitVarInsn(
         getStoreType(componentType),
         localIndex.get(arrayGet.getTo().name())
@@ -611,9 +562,11 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else {storeType = AASTORE;}
 
     methodVisitor.visitVarInsn(
-        getLoadType(componentType),
+        getLoadType(arrayPut.value().type()),
         localIndex.get(arrayPut.value().name())
     );
+
+    castAssign(arrayPut.value().type(), arrayPut.array().type().componentType());
 
     methodVisitor.visitInsn(storeType);
   }
@@ -913,6 +866,100 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
           type.realName()
       );
     }
+  }
+
+  protected void castAssign(IClass<?> source, IClass<?> target){
+    if(!target.isAssignableFrom(source)){
+      if(!source.isPrimitive() && target.isPrimitive()){
+        unwrapAssign(target);
+      }
+      else if(source.isPrimitive() && !target.isPrimitive()){
+        wrapAssign(source);
+      }
+      else if(source.isPrimitive() && target.isPrimitive()){
+        int opc = CASTTABLE.get(getTypeChar(source, true)).get(getTypeChar(target, false));
+        methodVisitor.visitInsn(opc);
+      }
+      else methodVisitor.visitTypeInsn(CHECKCAST, target.internalName());
+    }
+  }
+
+  protected void unwrapAssign(IClass<?> target){
+    if(!target.isPrimitive())
+      throw new IllegalHandleException("cannot unwrap non-primitive");
+
+    if(target == ClassInfo.INT_TYPE || target == ClassInfo.FLOAT_TYPE
+        || target == ClassInfo.LONG_TYPE || target == ClassInfo.DOUBLE_TYPE
+        || target == ClassInfo.BYTE_TYPE || target == ClassInfo.SHORT_TYPE){
+      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Number");
+    }
+
+    if(target == ClassInfo.INT_TYPE){
+      methodVisitor.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/Number", "intValue", "()I", false
+      );
+    }
+    if(target == ClassInfo.FLOAT_TYPE){
+      methodVisitor.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/Number", "floatValue", "()F", false
+      );
+    }
+    if(target == ClassInfo.BYTE_TYPE){
+      methodVisitor.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/Number", "byteValue", "()B", false
+      );
+    }
+    if(target == ClassInfo.SHORT_TYPE){
+      methodVisitor.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/Number", "shortValue", "()S", false
+      );
+    }
+    if(target == ClassInfo.LONG_TYPE){
+      methodVisitor.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/Number", "longValue", "()J", false
+      );
+    }
+    if(target == ClassInfo.DOUBLE_TYPE){
+      methodVisitor.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/Number", "doubleValue", "()D", false
+      );
+    }
+    if(target == ClassInfo.BOOLEAN_TYPE){
+      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Boolean");
+      methodVisitor.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false
+      );
+    }
+    if(target == ClassInfo.CHAR_TYPE){
+      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Character");
+      methodVisitor.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/Character", "charValue", "()C", false
+      );
+    }
+  }
+
+  protected void wrapAssign(IClass<?> source){
+    if(!source.isPrimitive())
+      throw new IllegalHandleException("cannot wrap non-primitive");
+
+    String typeDisc = null, methodDisc = null;
+
+    if(source == ClassInfo.INT_TYPE){typeDisc = "java/lang/Integer"; methodDisc = "(I)Ljava/lang/Integer;";}
+    else if(source == ClassInfo.FLOAT_TYPE){typeDisc = "java/lang/Float"; methodDisc = "(F)Ljava/lang/Float;";}
+    else if(source == ClassInfo.LONG_TYPE){typeDisc = "java/lang/Long"; methodDisc = "(J)Ljava/lang/Long;";}
+    else if(source == ClassInfo.DOUBLE_TYPE){typeDisc = "java/lang/Double"; methodDisc = "(D)Ljava/lang/Double;";}
+    else if(source == ClassInfo.BYTE_TYPE){typeDisc = "java/lang/Byte"; methodDisc = "(B)Ljava/lang/Byte;";}
+    else if(source == ClassInfo.SHORT_TYPE){typeDisc = "java/lang/Short"; methodDisc = "(S)Ljava/lang/Short;";}
+    else if(source == ClassInfo.BOOLEAN_TYPE){typeDisc = "java/lang/Boolean"; methodDisc = "(Z)Ljava/lang/Boolean;";}
+    else if(source == ClassInfo.CHAR_TYPE){typeDisc = "java/lang/Character"; methodDisc = "(C)Ljava/lang/Character;";}
+
+    methodVisitor.visitMethodInsn(
+        INVOKESTATIC,
+        typeDisc,
+        "valueOf",
+        methodDisc,
+        false
+    );
   }
 
   protected static char getTypeChar(IClass<?> primitive, boolean foldInt){

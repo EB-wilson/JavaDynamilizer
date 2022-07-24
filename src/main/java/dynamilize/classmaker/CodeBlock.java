@@ -87,6 +87,15 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     return (ILocal<T>) parameter.get(index);
   }
 
+  /**获取方法的参数的局部变量，索引为此参数在参数列表中的位置，不同于{@link CodeBlock#getParam(int)}，索引0处是第一个形参而不是this
+   *
+   * @param index 此参数在形式参数列表中的位置
+   * @param <T> 参数的类型*/
+  @SuppressWarnings("unchecked")
+  public <T> ILocal<T> getRealParam(int index){
+    return (ILocal<T>) parameter.get(selfPointer != null? index + 1: index);
+  }
+
   @Override
   public List<Label> labelList(){
     return labelList;

@@ -130,7 +130,6 @@ public class DataPool<Owner>{
     Map<FunctionType, Function<Owner, R>> map = (Map) funcPool.get(name);
     if(map != null){
       Function<Owner, R> res = map.get(type);
-      type.recycle();
       if(res != null) return res;
 
       for(Map.Entry<FunctionType, Function<Owner, R>> entry: map.entrySet()){
@@ -139,7 +138,7 @@ public class DataPool<Owner>{
         }
       }
     }
-    superPool.select(name, type);
+    if(superPool != null) return superPool.select(name, type);
 
     throw new NoSuchMethodError("no such method with name " + name);
   }
@@ -184,7 +183,7 @@ public class DataPool<Owner>{
 
     /**@see DynamicObject#invokeFunc(String, ArgumentList)*/
     public <R> R invokeFunc(String name, ArgumentList args){
-      FunctionType type = FunctionType.inst(args);
+      FunctionType type = args.type();
 
       return (R) getFunc(name, type).invoke(owner, args);
     }

@@ -62,7 +62,7 @@ public class JavaMethodEntry implements MethodEntry{
         Object[] realArgArr = argLenArray[thisP? argsArray.length + 1: argsArray.length];
         if(thisP){
           realArgArr[0] = self;
-          System.arraycopy(argsArray, 0, realArgArr, 1, realArgArr.length);
+          if(argsArray.length != 0) System.arraycopy(argsArray, 0, realArgArr, 1, realArgArr.length);
         }
         else System.arraycopy(argsArray, 0, realArgArr, 0, realArgArr.length);
         //实际上这里没用三元符可以减少一条将要执行的jvm指令
