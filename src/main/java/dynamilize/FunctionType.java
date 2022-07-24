@@ -1,7 +1,7 @@
 package dynamilize;
 
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
+import java.lang.reflect.Executable;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -69,7 +69,7 @@ public class FunctionType{
     return inst(type.parameterArray());
   }
 
-  public static FunctionType from(Method method){
+  public static FunctionType from(Executable method){
     return inst(method.getParameterTypes());
   }
 

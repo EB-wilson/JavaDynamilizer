@@ -149,14 +149,22 @@ public abstract class DynamicMaker{
       List<Object> argsLis = new ArrayList<>(Arrays.asList(dynamicClass, genPool(clazz, dynamicClass)));
       argsLis.addAll(Arrays.asList(args));
 
-      Constructor<?> cstr = clazz.getDeclaredConstructor(
-          FunctionType.unwrapped(argsLis.stream().map(e -> e == null? Object.class: e.getClass()).toArray(Class[]::new))
-      );
+      Constructor<?> cstr = null;
+      for(Constructor<?> constructor: clazz.getDeclaredConstructors()){
+        if(FunctionType.from(constructor).match(args)){
+          cstr = constructor;
+          break;
+        }
+      }
+      if(cstr == null)
+        throw new NoSuchMethodError("no matched constructor found with parameter " + Arrays.toString(args));
+
       FunctionType type = FunctionType.inst(cstr.getParameterTypes());
+      Constructor<?> c = cstr;
       T inst = (T) constructors.computeIfAbsent(clazz, e -> new HashMap<>()).computeIfAbsent(type, t -> {
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         try{
-          return lookup.unreflectConstructor(cstr);
+          return lookup.unreflectConstructor(c);
         }catch(IllegalAccessException e){
           throw new RuntimeException(e);
         }
