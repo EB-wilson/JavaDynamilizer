@@ -151,7 +151,7 @@ public abstract class DynamicMaker{
 
       Constructor<?> cstr = null;
       for(Constructor<?> constructor: clazz.getDeclaredConstructors()){
-        if(FunctionType.from(constructor).match(args)){
+        if(FunctionType.from(constructor).match(argsLis.toArray())){
           cstr = constructor;
           break;
         }
