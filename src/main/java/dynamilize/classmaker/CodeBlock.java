@@ -4,9 +4,10 @@ import dynamilize.IllegalHandleException;
 import dynamilize.classmaker.code.*;
 
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+
+import static dynamilize.classmaker.ClassInfo.*;
+import static dynamilize.classmaker.ClassInfo.CHAR_TYPE;
 
 public class CodeBlock<R> implements ICodeBlock<R>{
   protected ArrayList<Element> statements = new ArrayList<>();
@@ -307,6 +308,30 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   public final <T> void loadConstant(ILocal<T> tar, T constant){
     codes().add(
         new LoadConstant<>(constant, tar)
+    );
+  }
+
+  public final <T extends Comparable<?>> ISwitch<T> switchCase(ILocal<T> target, Label end, Object... casePairs){
+    Switch<T> swi;
+    codes().add(
+        swi = new Switch<>(target, end, casePairs)
+    );
+
+    return swi;
+  }
+
+  public final <T extends Comparable<?>> ISwitch<T> switchDef(ILocal<T> target, Label end){
+    Switch<T> swi;
+    codes().add(
+        swi = new Switch<>(target, end)
+    );
+
+    return swi;
+  }
+
+  public final <T extends Throwable> void thr(ILocal<T> throwable){
+    codes().add(
+        new Throw<>(throwable)
     );
   }
 
@@ -810,6 +835,115 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     @Override
     public Label ifJump(){
       return ifJump;
+    }
+  }
+
+  protected static class Switch<T> implements ISwitch<T>{
+    ILocal<T> target;
+    Map<T, Label> casesMap;
+
+    Label end;
+
+    boolean isTable;
+
+    @SuppressWarnings("unchecked")
+    public Switch(ILocal<T> target, Label end, Object... pairs){
+      this.target = target;
+      this.casesMap = new TreeMap<>((a, b) -> a.hashCode() - b.hashCode());
+
+      this.end = end;
+
+      for(int i = 0; i < pairs.length; i += 2){
+        casesMap.put((T) pairs[i], (Label) pairs[i + 1]);
+      }
+
+      checkTable();
+    }
+
+    public Switch(ILocal<T> target, Label end){
+      this.target = target;
+      this.casesMap = new TreeMap<>();
+      this.end = end;
+    }
+
+    @Override
+    public boolean isTable(){
+      return isTable;
+    }
+
+    @Override
+    public Label end(){
+      return end;
+    }
+
+    @Override
+    public ILocal<T> target(){
+      return target;
+    }
+
+    @Override
+    public Map<T, Label> cases(){
+      return casesMap;
+    }
+
+    @Override
+    public void addCase(T caseKey, Label caseJump){
+      casesMap.put(caseKey, caseJump);
+
+      if(isTable) checkTable();
+    }
+
+    protected void checkTable(){
+      if(target.type() == BOOLEAN_TYPE || (!target.type().isPrimitive()
+          && !ClassInfo.asType(Enum.class).isAssignableFrom(target.type())
+          && target.type() != STRING_TYPE))
+        throw new IllegalHandleException("unsupported type error");
+
+      if(target.type() == LONG_TYPE || target.type() == INT_TYPE
+      || target.type() == SHORT_TYPE || target.type() == BYTE_TYPE
+      || target.type() == CHAR_TYPE || target.type() instanceof Enum<?>){
+        int labelsNumber = casesMap.size();
+
+        int max = Integer.MIN_VALUE, min = Integer.MAX_VALUE;
+        for(T t: casesMap.keySet()){
+          if(t instanceof Number n){
+            max = Math.max(max, n.intValue());
+            min = Math.min(min, n.intValue());
+          }
+          else if(t instanceof Character c){
+            max = Math.max(max, c);
+            min = Math.min(min, c);
+          }
+          else if(t instanceof Boolean b){
+            max = Math.max(max, b? 1: 0);
+            min = Math.min(min, b? 1: 0);
+          }
+          else if(t instanceof Enum<?> e){
+            max = Math.max(max, e.ordinal());
+            min = Math.min(min, e.ordinal());
+          }
+        }
+
+        int tableSpaceCost = 4 + max - min + 1;
+        int tableTimeCost = 3;
+        int lookupSpaceCost = 3 + 2*labelsNumber;
+
+        isTable = labelsNumber > 0 && tableSpaceCost + 3*tableTimeCost <= lookupSpaceCost + 3*labelsNumber;
+      }
+      else isTable = false;
+    }
+  }
+
+  protected static class Throw<T extends Throwable> implements IThrow<T>{
+    ILocal<T> thr;
+
+    public Throw(ILocal<T> thr){
+      this.thr = thr;
+    }
+
+    @Override
+    public ILocal<T> thr(){
+      return thr;
     }
   }
 }

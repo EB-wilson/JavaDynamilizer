@@ -21,7 +21,7 @@ public class ASMTest{
 
     ClassInfo<System> sys = ClassInfo.asType(System.class);
     ClassInfo<PrintStream> print = ClassInfo.asType(PrintStream.class);
-    ClassInfo<Test> ttype = ClassInfo.asType(Test.class);
+    ClassInfo<Test> testType = ClassInfo.asType(Test.class);
 
     FieldInfo<PrintStream> prF = sys.getField(print, "out");
     MethodInfo<PrintStream, Void> printf = print.getMethod(ClassInfo.VOID_TYPE, "println", ClassInfo.OBJECT_TYPE);
@@ -29,7 +29,7 @@ public class ASMTest{
     FieldInfo<Test> inte = typ.declareField(
         Modifier.PRIVATE | Modifier.STATIC,
         "field",
-        ttype,
+        testType,
         Test.a
     );
 
@@ -41,7 +41,7 @@ public class ASMTest{
     ILocal<PrintStream> out = met.local(print);
     met.assign(null, prF, out);
 
-    ILocal<Test> str = met.local(ttype);
+    ILocal<Test> str = met.local(testType);
     met.assign(null, inte, str);
     met.invoke(out, printf, null, str);
 

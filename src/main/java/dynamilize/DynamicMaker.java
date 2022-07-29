@@ -1,9 +1,7 @@
 package dynamilize;
 
 import dynamilize.classmaker.*;
-import dynamilize.classmaker.code.IClass;
-import dynamilize.classmaker.code.ILocal;
-import dynamilize.classmaker.code.IMethod;
+import dynamilize.classmaker.code.*;
 import dynamilize.classmaker.code.annotation.AnnotationType;
 import org.objectweb.asm.Opcodes;
 
@@ -19,7 +17,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-import static dynamilize.ArgumentList.argLenArray;
+import static dynamilize.classmaker.ClassInfo.*;
 
 /**动态类型运作的核心工厂类型，用于将传入的动态类型与委托基类等构造出动态委托类型以及其实例。
  * <p>定义了基于{@link ASMGenerator}的默认生成器实现，通过{@link DynamicMaker#getDefault()}获取该实例以使用
@@ -47,25 +45,36 @@ import static dynamilize.ArgumentList.argLenArray;
 @SuppressWarnings("rawtypes")
 public abstract class DynamicMaker{
   public static final String CALLSUPER = "$super";
+
   public static final ClassInfo<DynamicClass> DYNAMIC_CLASS_TYPE = ClassInfo.asType(DynamicClass.class);
   public static final ClassInfo<DynamicObject> DYNAMIC_OBJECT_TYPE = ClassInfo.asType(DynamicObject.class);
   public static final ClassInfo<DataPool> DATA_POOL_TYPE = ClassInfo.asType(DataPool.class);
   public static final ClassInfo<FunctionType> FUNCTION_TYPE_TYPE = ClassInfo.asType(FunctionType.class);
+  public static final MethodInfo<FunctionType, FunctionType> TYPE_INST = FUNCTION_TYPE_TYPE.getMethod(
+      FUNCTION_TYPE_TYPE,
+      "inst",
+      ClassInfo.CLASS_TYPE.asArray());
   public static final ClassInfo<Function> FUNCTION_TYPE = ClassInfo.asType(Function.class);
   public static final ClassInfo<DataPool.ReadOnlyPool> READONLY_POOL_TYPE = ClassInfo.asType(DataPool.ReadOnlyPool.class);
+  public static final ClassInfo<Integer> INTEGER_CLASS_TYPE = ClassInfo.asType(Integer.class);
+  public static final ClassInfo<Map> MAP_TYPE = ClassInfo.asType(Map.class);
 
+  public static final IMethod<Map, Object> MAP_GET = MAP_TYPE.getMethod(OBJECT_TYPE, "get", OBJECT_TYPE);
+  public static final IMethod<Integer, Integer> VALUE_OF = INTEGER_CLASS_TYPE.getMethod(INTEGER_CLASS_TYPE, "valueOf", INT_TYPE);
+  public static final IMethod<Map, Object> PUT = MAP_TYPE.getMethod(OBJECT_TYPE, "put", OBJECT_TYPE, OBJECT_TYPE);
   public static final IMethod<DataPool, DataPool.ReadOnlyPool> GET_SUPER = DATA_POOL_TYPE.getMethod(READONLY_POOL_TYPE, "getSuper");
-  public static final IMethod<DataPool, Object> GET = DATA_POOL_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "get", ClassInfo.STRING_TYPE);
-  public static final IMethod<DataPool, Void> SETVAR = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", ClassInfo.STRING_TYPE, ClassInfo.OBJECT_TYPE);
-  public static final IMethod<DataPool, Void> SETFUNC = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", ClassInfo.STRING_TYPE, FUNCTION_TYPE, ClassInfo.CLASS_TYPE.asArray());
+  public static final IMethod<DataPool, Object> GET = DATA_POOL_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "get", STRING_TYPE);
+  public static final IMethod<DataPool, Void> SETVAR = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", STRING_TYPE, ClassInfo.OBJECT_TYPE);
+  public static final IMethod<DataPool, Void> SETFUNC = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", STRING_TYPE, FUNCTION_TYPE, ClassInfo.CLASS_TYPE.asArray());
   public static final IMethod<DataPool, Void> SET_OWNER = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "setOwner", ClassInfo.OBJECT_TYPE);
-  public static final IMethod<DataPool, Function> SELECT = DATA_POOL_TYPE.getMethod(FUNCTION_TYPE, "select", ClassInfo.STRING_TYPE, FUNCTION_TYPE_TYPE);
-  public static final IMethod<DynamicObject, Object> INVOKE = DYNAMIC_OBJECT_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "invokeFunc", ClassInfo.STRING_TYPE, ClassInfo.OBJECT_TYPE.asArray());
+  public static final IMethod<DataPool, Function> SELECT = DATA_POOL_TYPE.getMethod(FUNCTION_TYPE, "select", STRING_TYPE, FUNCTION_TYPE_TYPE);
+  public static final IMethod<DynamicObject, Object> INVOKE = DYNAMIC_OBJECT_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "invokeFunc", STRING_TYPE, ClassInfo.OBJECT_TYPE.asArray());
 
   private static final Map<String, Set<FunctionType>> OVERRIDES = new HashMap<>();
   private static final Set<Class<?>> INTERFACE_TEMP = new HashSet<>();
   private static final Class[] EMPTY_CLASSES = new Class[0];
   public static final ILocal[] LOCALS_EMP = new ILocal[0];
+  public static final ClassInfo<IllegalStateException> STATE_EXCEPTION_TYPE = ClassInfo.asType(IllegalStateException.class);
 
   private final JavaHandleHelper helper;
 
@@ -89,9 +98,7 @@ public abstract class DynamicMaker{
     BaseClassLoader loader = new BaseClassLoader(DynamicMaker.class.getClassLoader());
     ASMGenerator generator = new ASMGenerator(loader, Opcodes.V1_8);
 
-    return new DynamicMaker(acc -> {
-      acc.setAccessible(true);
-    }){
+    return new DynamicMaker(acc -> acc.setAccessible(true)){
       @Override
       protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces){
         return makeClassInfo(baseClass, interfaces).generate(generator);
@@ -114,7 +121,7 @@ public abstract class DynamicMaker{
    * @return 构造出的动态实例*/
   @SuppressWarnings("rawtypes")
   public DynamicObject newInstance(Class<?>[] interfaces, DynamicClass dynamicClass){
-    return (DynamicObject) newInstance(Object.class, interfaces, dynamicClass);
+    return newInstance(Object.class, interfaces, dynamicClass);
   }
 
   /**用给出的构造函数参数构造动态类的实例，参数表必须可以在委托的java类型中存在匹配的可用构造器。
@@ -126,7 +133,7 @@ public abstract class DynamicMaker{
    * @return 构造出的动态实例
    *
    * @throws RuntimeException 若构造函数实参无法匹配到相应的构造器或者存在其他异常*/
-  public <T> T newInstance(Class<T> base, DynamicClass dynamicClass, Object... args){
+  public <T> DynamicObject<T> newInstance(Class<T> base, DynamicClass dynamicClass, Object... args){
     return newInstance(base, EMPTY_CLASSES, dynamicClass, args);
   }
 
@@ -141,7 +148,7 @@ public abstract class DynamicMaker{
    *
    * @throws RuntimeException 若构造函数实参无法匹配到相应的构造器或者存在其他异常*/
   @SuppressWarnings("unchecked")
-  public <T> T newInstance(Class<T> base, Class<?>[] interfaces, DynamicClass dynamicClass, Object... args){
+  public <T> DynamicObject<T> newInstance(Class<T> base, Class<?>[] interfaces, DynamicClass dynamicClass, Object... args){
     checkBase(base);
 
     Class<? extends T> clazz = getDynamicBase(base, interfaces);
@@ -151,17 +158,20 @@ public abstract class DynamicMaker{
 
       Constructor<?> cstr = null;
       for(Constructor<?> constructor: clazz.getDeclaredConstructors()){
-        if(FunctionType.from(constructor).match(argsLis.toArray())){
+        FunctionType t;
+        if((t = FunctionType.from(constructor)).match(argsLis.toArray())){
           cstr = constructor;
           break;
         }
+        t.recycle();
       }
       if(cstr == null)
         throw new NoSuchMethodError("no matched constructor found with parameter " + Arrays.toString(args));
 
       FunctionType type = FunctionType.inst(cstr.getParameterTypes());
       Constructor<?> c = cstr;
-      T inst = (T) constructors.computeIfAbsent(clazz, e -> new HashMap<>()).computeIfAbsent(type, t -> {
+      DynamicObject<T> inst = (DynamicObject<T>) constructors.computeIfAbsent(clazz, e -> new HashMap<>())
+                                                             .computeIfAbsent(type, t -> {
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         try{
           return lookup.unreflectConstructor(c);
@@ -175,6 +185,10 @@ public abstract class DynamicMaker{
     }catch(Throwable e){
       throw new RuntimeException(e);
     }
+  }
+
+  public JavaHandleHelper getHelper(){
+    return helper;
   }
 
   /**检查委托基类的可用性，基类若为final或者不是动态委托产生的类型则都会抛出异常*/
@@ -196,30 +210,17 @@ public abstract class DynamicMaker{
    * @return 生成的动态类型数据池*/
   protected <T> DataPool<T> genPool(Class<? extends T> base, DynamicClass dynamicClass){
     DataPool<T> basePool = new DataPool<>(null);
-    MethodHandles.Lookup lookup = MethodHandles.lookup();
 
     for(Method method: base.getDeclaredMethods()){
       CallSuperMethod callSuper = method.getAnnotation(CallSuperMethod.class);
       if(callSuper != null){
         String name = callSuper.srcMethod();
-        try{
-          MethodHandle handle = lookup.unreflect(method);
-
-          basePool.set(name, (self, args) -> {
-            Object[] argArr = args.args();
-            Object[] arg = argLenArray[argArr.length + 1];
-            arg[0] = self;
-            System.arraycopy(argArr, 0, arg, 1, argArr.length);
-
-            try{
-              return handle.invokeWithArguments(arg);
-            }catch(Throwable e){
-              throw new RuntimeException(e);
-            }
-          }, method.getParameterTypes());
-        }catch(IllegalAccessException e){
-          throw new RuntimeException(e);
-        }
+        String signature = name + FunctionType.from(method) + ClassInfo.asType(method.getReturnType()).realName();
+        basePool.set(
+            name,
+            (self, args) -> ((SuperInvoker)self).invokeSuper(signature, args.args()),
+            method.getParameterTypes()
+        );
       }
     }
 
@@ -275,6 +276,7 @@ public abstract class DynamicMaker{
   protected <T> ClassInfo<? extends T> makeClassInfo(Class<T> baseClass, Class<?>[] interfaces){
     ArrayList<ClassInfo<?>> inter = new ArrayList<>(interfaces.length + 1);
     inter.add(ClassInfo.asType(DynamicObject.class));
+    inter.add(ClassInfo.asType(SuperInvoker.class));
 
     for(Class<?> i: interfaces){
       inter.add(ClassInfo.asType(i));
@@ -300,10 +302,34 @@ public abstract class DynamicMaker{
         null
     );
 
+    FieldInfo<Map> methodIndex = classInfo.declareField(
+        Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL,
+        "methodIndex",
+        MAP_TYPE,
+        null
+    );
+
     Object[] paramBase = new Object[]{
         0, DynamicClass.class, "$dyc$",
         0, DataPool.class, "$datP$"
     };
+
+    CodeBlock<Void> clinit = classInfo.getClinitBlock();
+    ILocal<Map> caseIndex = clinit.local(MAP_TYPE);
+    clinit.newInstance(
+        (MethodInfo)ClassInfo.asType(HashMap.class).getConstructor(),
+        caseIndex
+    );
+    clinit.assign(null, caseIndex, methodIndex);
+    ILocal<Integer> tempInt = clinit.local(INT_TYPE);
+    ILocal<Integer> tempIndexWrap = clinit.local(INTEGER_CLASS_TYPE);
+    ILocal<String> tempSign = clinit.local(STRING_TYPE);
+
+    ILocal<FunctionType> tempType = clinit.local(FUNCTION_TYPE_TYPE);
+    ILocal<Class> tempClass = clinit.local(CLASS_TYPE);
+    ILocal<Class[]> tempClasses = clinit.local(CLASS_TYPE.asArray());
+
+    HashMap<Method, Integer> callSuperCaseMap = new HashMap<>();
 
     // public <init>(DynamicClass $dyC$, DataPool $datP$, *parameters*){
     //   super(*parameters*);
@@ -371,8 +397,67 @@ public abstract class DynamicMaker{
               Arrays.stream(method.getParameterTypes()).map(ClassInfo::asType).toArray(ClassInfo[]::new)
           ): null;
 
+          callSuperCaseMap.put(method, callSuperCaseMap.size());
+
+          // private static final FunctionType FUNCTION_TYPE$*name*;
+          // static {
+          //   ...
+          //   FUNCTION_TYPE$*name* = FunctionType.as(*paramTypes*);
+          //   methodIndex.put(*signature*, *index*);
+          //   ...
+          // }
+          {
+            FieldInfo<FunctionType> field = classInfo.declareField(
+                Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL,
+                "FUNCTION_TYPE$" + methodName,
+                FUNCTION_TYPE_TYPE,
+                null
+            );
+
+            clinit.loadConstant(tempInt, method.getParameterCount());
+            clinit.newArray(
+                CLASS_TYPE,
+                tempClasses,
+                tempInt
+            );
+            Class<?>[] paramTypes = method.getParameterTypes();
+            for(int i=0; i<paramTypes.length; i++){
+              clinit.loadConstant(tempClass, paramTypes[i]);
+              clinit.loadConstant(tempInt, i);
+
+              clinit.arrayPut(tempClasses, tempInt, tempClass);
+            }
+
+            clinit.invoke(
+                null,
+                TYPE_INST,
+                tempType,
+                tempClasses
+            );
+
+            clinit.assign(null, tempType, field);
+
+            clinit.loadConstant(tempSign, FunctionType.signature(method));
+            clinit.loadConstant(tempInt, callSuperCaseMap.get(method));
+
+            clinit.invoke(
+                null,
+                VALUE_OF,
+                tempIndexWrap,
+                tempInt
+            );
+
+            clinit.invoke(
+                caseIndex,
+                PUT,
+                null,
+                tempSign,
+                tempIndexWrap
+            );
+          }
+
           // public *returnType* *name*(*parameters*){
-          //   *[return]* this.invokeFunc("*name*", parameters);
+          //   *[return]* this.invokeFunc(FUNCTION_TYPE$*name* ,"*name*", parameters);
           // }
           {
             CodeBlock<?> code = classInfo.declareMethod(
@@ -382,7 +467,7 @@ public abstract class DynamicMaker{
                 Parameter.asParameter(method.getParameters())
             );
 
-            ILocal<String> met = code.local(ClassInfo.STRING_TYPE);
+            ILocal<String> met = code.local(STRING_TYPE);
             ILocal<Object[]> params = code.local(ClassInfo.OBJECT_TYPE.asArray());
             ILocal<Integer> length = code.local(ClassInfo.INT_TYPE);
 
@@ -437,6 +522,89 @@ public abstract class DynamicMaker{
       else curr = null;
     }
 
+    // public Object invokeSuper(String signature, Object... args);{
+    //   switch(methodIndex.get(signature)){
+    //     ...
+    //     case *index*: *method*$super(args[0], args[1],...); break;
+    //     ...
+    //   }
+    // }
+    {
+      CodeBlock<Object> code = classInfo.declareMethod(
+          Modifier.PUBLIC,
+          "invokeSuper",
+          OBJECT_TYPE,
+          Parameter.trans(
+              STRING_TYPE,
+              OBJECT_TYPE.asArray()
+          )
+      );
+
+      ILocal<Integer> index = code.local(INT_TYPE);
+      ILocal<Integer> indexWrap = code.local(INTEGER_CLASS_TYPE);
+      ILocal<Object> obj = code.local(OBJECT_TYPE);
+      ILocal<Map> caseMap = code.local(MAP_TYPE);
+      code.assign(null, methodIndex, caseMap);
+      code.invoke(
+          caseMap,
+          MAP_GET,
+          obj,
+          code.getRealParam(0)
+      );
+      code.cast(obj, indexWrap);
+      code.invoke(
+          indexWrap,
+          INTEGER_CLASS_TYPE.getMethod(INT_TYPE, "intValue"),
+          index
+      );
+
+      Label end = code.label();
+
+      ISwitch<Integer> iSwitch = code.switchDef(index, end);
+
+      ILocal<Object[]> args = code.getRealParam(1);
+      ILocal<Object> tmpObj = code.local(OBJECT_TYPE);
+      ILocal<Integer> tmpInd = code.local(INT_TYPE);
+      for(Map.Entry<Method, Integer> entry: callSuperCaseMap.entrySet()){
+        Label l = code.label();
+        code.markLabel(l);
+
+        iSwitch.addCase(entry.getValue(), l);
+
+        Method m = entry.getKey();
+        IMethod method = code.owner().owner().getMethod(
+            ClassInfo.asType(m.getReturnType()),
+            m.getName() + CALLSUPER,
+            Arrays.stream(m.getParameterTypes()).map(ClassInfo::asType).toArray(IClass[]::new)
+        );
+        ILocal<?>[] params = new ILocal[method.parameters().size()];
+        for(int in = 0; in < params.length; in++){
+          params[in] = code.local(((Parameter<?>)method.parameters().get(in)).getType());
+          code.loadConstant(tmpInd, in);
+          code.arrayGet(args, tmpInd, tmpObj);
+          code.cast(tmpObj, params[in]);
+        }
+
+        code.invoke(code.getThis(), method, tmpObj, params);
+        if(method.returnType() == VOID_TYPE){
+          code.loadConstant(tmpObj, null);
+        }
+        code.returnValue(tmpObj);
+      }
+      code.markLabel(end);
+
+      ILocal<String> message = code.local(STRING_TYPE);
+      ILocal<IllegalStateException> exception = code.local(STATE_EXCEPTION_TYPE);
+      code.loadConstant(message, "no such method signature with ");
+      code.operate(message, IOperate.OPCode.ADD, code.getRealParam(0), message);
+      code.newInstance(
+          STATE_EXCEPTION_TYPE.getConstructor(STRING_TYPE),
+          exception,
+          message
+      );
+      code.thr(exception);
+    }
+
     // public DynamicClass<Self> getDyClass(){
     //   return this.$dynamic_type$;
     // }
@@ -475,7 +643,7 @@ public abstract class DynamicMaker{
           Modifier.PUBLIC,
           "getVar",
           ClassInfo.OBJECT_TYPE,
-          Parameter.as(0, ClassInfo.STRING_TYPE, "name")
+          Parameter.as(0, STRING_TYPE, "name")
       );
       ILocal<DataPool> pool = code.local(DATA_POOL_TYPE);
       code.assign(code.getThis(), dataPool, pool);
@@ -494,7 +662,7 @@ public abstract class DynamicMaker{
           "setVar",
           ClassInfo.VOID_TYPE,
           Parameter.as(
-              0, ClassInfo.STRING_TYPE, "name",
+              0, STRING_TYPE, "name",
               0, ClassInfo.OBJECT_TYPE, "value"
           )
       );
@@ -514,7 +682,7 @@ public abstract class DynamicMaker{
           "getFunc",
           FUNCTION_TYPE,
           Parameter.as(
-              0, ClassInfo.STRING_TYPE, "name",
+              0, STRING_TYPE, "name",
               0, FUNCTION_TYPE_TYPE, "type"
           )
       );
@@ -535,7 +703,7 @@ public abstract class DynamicMaker{
           "setFunc",
           ClassInfo.VOID_TYPE,
           Parameter.as(
-              0, ClassInfo.STRING_TYPE, "name",
+              0, STRING_TYPE, "name",
               0, FUNCTION_TYPE, "func",
               0, ClassInfo.CLASS_TYPE.asArray(), "argTypes"
           )
@@ -564,38 +732,17 @@ public abstract class DynamicMaker{
   /**动态委托类型标识，由此工厂生成的动态委托类型都会具有此注解标识*/
   @Target(ElementType.TYPE)
   @Retention(RetentionPolicy.RUNTIME)
-  public @interface DynamicType{}
+  @interface DynamicType{}
 
   /**超类方法标识，带有一个属性描述了此方法所引用的超类方法名称，所有生成的对super方法入口都会具有此注解。*/
   @Target(ElementType.METHOD)
   @Retention(RetentionPolicy.RUNTIME)
-  public @interface CallSuperMethod{
+  @interface CallSuperMethod{
     /**方法所调用的超类源方法，将提供给初级数据池标识对超类方法的引用*/
     String srcMethod();
   }
 
-  private static class ClassImplements<T>{
-    final Class<T> base;
-    final Class<?>[] interfaces;
-
-    public ClassImplements(Class<T> base, Class<?>[] interfaces){
-      this.base = base;
-      this.interfaces = interfaces;
-    }
-
-    @Override
-    public boolean equals(Object o){
-      if(this == o) return true;
-      if(!(o instanceof ClassImplements<?>)) return false;
-      ClassImplements<?> that = (ClassImplements<?>) o;
-      return base.equals(that.base) && Arrays.equals(interfaces, that.interfaces);
-    }
-
-    @Override
-    public int hashCode(){
-      int result = Objects.hash(base);
-      result = 31*result + Arrays.hashCode(interfaces);
-      return result;
-    }
+  public interface SuperInvoker{
+    Object invokeSuper(String signature, Object... args);
   }
 }

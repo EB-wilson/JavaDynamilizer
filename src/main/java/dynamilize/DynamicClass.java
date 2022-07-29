@@ -5,7 +5,9 @@ import dynamilize.annotation.Exclude;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**保存动态对象行为信息的动态类型，描述了对象的共有行为和变量信息。
@@ -16,7 +18,7 @@ import java.util.Map;
  * <li><strong>当动态类的超类的方法行为发生变更时，若类的行为中引用了超类方法，则类的行为会随之改变</strong>
  * <p><strong>仅在动态对象的方法来自动态类描述的行为时，上述变更才会生效</strong>
  * </ul>
- * <p>描述动态类的行为，需要使用一个类作为{@linkplain DynamicClass#visitClass(Class) 行为样版}，以增量模式编辑类型行为，方法和默认变量只能新增/变更，不可删除
+ * <p>描述动态类的行为需要{@linkplain DynamicClass#visitClass(Class) 行为样版}或者函数表达式，以增量模式编辑类型行为，方法和默认变量只能新增/变更，不可删除
  * <pre>{@code
  * 下面是一个简单的样例:
  * public class Template{
@@ -36,6 +38,17 @@ import java.util.Map;
  * >>> string0
  * }</pre>
  *
+ * <strong>
+ * 注意，动态类型的行为变更是有时效的，这遵循以下规则：
+ * <ul>
+ * <li> 在一个动态对象被创建之前的所有对动态类型的变更，都对新创建的动态对象有效
+ * <li> 对于一个已被创建的动态对象，在动态类型中声明新的函数和变量，以及修改动态类型中的变量初始值都不会对已存在的对象产生直接影响
+ * <li> 对于一个已被创建的动态对象，若它的某一函数没有通过对象的{@link DynamicObject#setFunc(String, Function, Class[])}方法变更，则对动态类型的此方法进行变更将会改变这个对象的该函数行为
+ * <li> 若一个已存在的动态对象的某一函数已经被{@link DynamicObject#setFunc(String, Function, Class[])}方法变更，则其动态类型的行为变更对该对象的此函数行为没有直接影响
+ * <li> 对象的变量初始值只和被创建时有关，比如对于变量的样版，变量初始值或者初始值函数只和被创建时，该字段的值或函数有关；对于函数，变量初始值的函数只在被创建时调用并返回值。
+ * </ul>
+ * </strong>
+ *
  * @see DynamicMaker#newInstance(Class, Class[], DynamicClass, Object...)
  * @see DynamicMaker#newInstance(DynamicClass)
  * @see DynamicMaker#newInstance(Class[], DynamicClass)
@@ -44,7 +57,10 @@ import java.util.Map;
  * @author EBwilson */
 public class DynamicClass{
   /**保存了所有动态类的实例，通常情况下动态类型只有在主动删除时才会退出池，对于废弃的类，请切记使用{@link DynamicClass#delete()}删除，否则会造成内存泄漏*/
-  private final static HashMap<String, DynamicClass> classPool = new HashMap<>();
+  private static final HashMap<String, DynamicClass> classPool = new HashMap<>();
+
+  private static final List<MethodEntry> TMP_LIS = new ArrayList<>();
+  public static final MethodEntry[] EMP_METS = new MethodEntry[0];
 
   /**类型的唯一限定名称*/
   private final String name;
@@ -114,6 +130,15 @@ public class DynamicClass{
     checkFinalized();
 
     return superDyClass;
+  }
+
+  public MethodEntry[] getFunctions(){
+    TMP_LIS.clear();
+    for(Map<FunctionType, MethodEntry> map: functions.values()){
+      TMP_LIS.addAll(map.values());
+    }
+
+    return TMP_LIS.toArray(EMP_METS);
   }
 
   /**分配实例数据池信息，应避免从外部调用此方法
@@ -221,7 +246,7 @@ public class DynamicClass{
    * @param name 函数名称
    * @param func 描述函数行为的匿名函数
    * @param argTypes 函数的形式参数类型*/
-  public void setFunction(String name, Function<?, ?> func, Class<?>... argTypes){
+  public <S> void setFunction(String name, Function<DynamicObject<S>, ?> func, Class<?>... argTypes){
     FunctionType type = FunctionType.inst(argTypes);
     functions.computeIfAbsent(name, n -> new HashMap<>())
         .put(type, new FunctionEntry<>(name, true, func, type));
@@ -232,7 +257,7 @@ public class DynamicClass{
    * @param name 函数名称
    * @param func 描述函数行为的匿名函数
    * @param argTypes 函数的形式参数类型*/
-  public void setFinalFunc(String name, Function<?, ?> func, Class<?>... argTypes){
+  public <S> void setFinalFunc(String name, Function<DynamicObject<S>, ?> func, Class<?>... argTypes){
     Map<FunctionType, MethodEntry> map = functions.computeIfAbsent(name, n -> new HashMap<>());
     FunctionType type = FunctionType.inst(argTypes);
 
@@ -277,5 +302,10 @@ public class DynamicClass{
   private void checkFinalized(){
     if(isObsoleted)
       throw new IllegalHandleException("cannot do anything on obsoleted dynamic class");
+  }
+
+  @Override
+  public String toString(){
+    return "dyC:" + name;
   }
 }

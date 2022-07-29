@@ -50,7 +50,7 @@ public class JavaMethodEntry implements MethodEntry{
       else arg.add(param);
     }
 
-    type = FunctionType.inst(arg.stream().map(Parameter::getType).toArray(Class[]::new));
+    type = FunctionType.inst(FunctionType.toTypes(arg));
 
     boolean thisP = thisPointer;
     MethodHandles.Lookup lookup = MethodHandles.lookup();

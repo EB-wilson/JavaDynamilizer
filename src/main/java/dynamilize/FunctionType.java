@@ -1,13 +1,16 @@
 package dynamilize;
 
+import dynamilize.classmaker.ClassInfo;
+
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Executable;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
 public class FunctionType{
-  public static int MAX_RECYCLE = 1024;
+  public static int MAX_RECYCLE = 16384;
 
   private static final Class<?>[] EMPTY = new Class[0];
   private static final LinkedList<FunctionType> RECYCLE_POOL = new LinkedList<>();
@@ -18,12 +21,19 @@ public class FunctionType{
     this.paramType = paramType;
   }
 
+  //此类存在频繁的调用，数据量小，使用流处理数据会产生不必要的性能花销，使用for遍历取代流处理
   public static Class<?>[] wrapper(Class<?>... clazz){
-    return Arrays.stream(clazz).map(FunctionType::wrapper).toArray(Class[]::new);
+    for(int i = 0; i < clazz.length; i++){
+      clazz[i] = wrapper(clazz[i]);
+    }
+    return clazz;
   }
 
   public static Class<?>[] unwrapped(Class<?>... clazz){
-    return Arrays.stream(clazz).map(FunctionType::unwrapped).toArray(Class[]::new);
+    for(int i = 0; i < clazz.length; i++){
+      clazz[i] = unwrapped(clazz[i]);
+    }
+    return clazz;
   }
 
   public static Class<?> wrapper(Class<?> clazz){
@@ -62,7 +72,27 @@ public class FunctionType{
   }
 
   public static FunctionType inst(Object... param){
-    return inst(unwrapped(Arrays.stream(param).map(e -> e == null? void.class: e.getClass()).toArray(Class[]::new)));
+    return inst(unwrapped(toTypes(param)));
+  }
+
+  public static Class<?>[] toTypes(Object... objects){
+    Class<?>[] types = new Class[objects.length];
+
+    for(int i = 0; i < types.length; i++){
+      types[i] = objects[i].getClass();
+    }
+
+    return types;
+  }
+
+  public static Class<?>[] toTypes(List<?> objects){
+    Class<?>[] types = new Class[objects.size()];
+
+    for(int i = 0; i < types.length; i++){
+      types[i] = objects.get(i).getClass();
+    }
+
+    return types;
   }
 
   public static FunctionType inst(FunctionType type){
@@ -83,8 +113,12 @@ public class FunctionType{
     return inst(argTypes);
   }
 
+  public static String signature(Method method){
+    return method.getName() + FunctionType.from(method) + ClassInfo.asType(method.getReturnType()).realName();
+  }
+
   public boolean match(Object... args){
-    return match(unwrapped(Arrays.stream(args).map(e -> e == null? void.class: e.getClass()).toArray(Class[]::new)));
+    return match(unwrapped(toTypes(args)));
   }
 
   public boolean match(Class<?>... argsType){
@@ -112,13 +146,24 @@ public class FunctionType{
   @Override
   public boolean equals(Object o){
     if(this == o) return true;
-    if(!(o instanceof FunctionType)) return false;
-    FunctionType that = (FunctionType) o;
+    if(!(o instanceof FunctionType that)) return false;
     return Arrays.equals(paramType, that.paramType);
   }
 
   @Override
   public int hashCode(){
     return Arrays.hashCode(paramType);
+  }
+
+  @Override
+  public String toString(){
+    StringBuilder b = new StringBuilder("(");
+
+    for(Class<?> clazz: paramType){
+      b.append(ClassInfo.asType(clazz).internalName());
+    }
+    b.append(")");
+
+    return b.toString();
   }
 }

@@ -48,4 +48,8 @@ public interface ElementVisitor{
   void visitArrayGet(IArrayGet<?> arrayGet);
 
   void visitArrayPut(IArrayPut<?> arrayPut);
+
+  void visitSwitch(ISwitch<?> zwitch);
+
+  void visitThrow(IThrow<?> thr);
 }

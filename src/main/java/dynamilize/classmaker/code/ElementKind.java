@@ -23,5 +23,7 @@ public enum ElementKind{
   CAST,
   INSTANCEOF,
   MARKLABEL,
+  SWITCH,
+  THROW,
   COMPARE
 }

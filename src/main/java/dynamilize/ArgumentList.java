@@ -15,7 +15,7 @@ public class ArgumentList{
     }
   }
 
-  private static final int MAX_INSTANCE_STACK = 2048;
+  private static final int MAX_INSTANCE_STACK = 16384;
 
   private static final Stack<ArgumentList> INSTANCES = new Stack<>();
 

@@ -1,0 +1,13 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="DuplicatedCode" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <Languages>
+        <language minSize="114" name="Java" />
+      </Languages>
+    </inspection_tool>
+    <inspection_tool class="SortedCollectionWithNonComparableKeys" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="IGNORE_TYPE_PARAMETERS" value="true" />
+    </inspection_tool>
+  </profile>
+</component>

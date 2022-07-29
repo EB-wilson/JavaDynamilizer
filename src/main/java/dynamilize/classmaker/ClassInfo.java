@@ -69,7 +69,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
    * <p>作为已有类型的标识符则一定不为空*/
   private Class<T> clazz;
 
-  private CodeBlock<Void> cinit;
+  private CodeBlock<Void> clinit;
 
   private String realName;
 
@@ -378,7 +378,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
    *
    * @return 若标记的类已被JVM加载*/
   @Override
-  @SuppressWarnings({"unchecked", "unchecked"})
+  @SuppressWarnings({"unchecked"})
   public boolean isExistedClass(){
     if(clazz != null) return true;
 
@@ -412,6 +412,14 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
           field.getName()
       );
     }
+  }
+
+  public CodeBlock<Void> getClinitBlock(){
+    if(clinit == null){
+      clinit = declareCinit();
+    }
+
+    return clinit;
   }
 
   @Override
@@ -485,8 +493,8 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
 
   @Override
   @SuppressWarnings("unchecked")
-  public <Type> FieldInfo<Type> getField(IClass<Type> type, String name){
-    return (FieldInfo<Type>) fieldMap.computeIfAbsent(name, e -> {
+  public <TY> FieldInfo<TY> getField(IClass<TY> type, String name){
+    return (FieldInfo<TY>) fieldMap.computeIfAbsent(name, e -> {
       if(!isExistedClass())
         throw new IllegalHandleException("this class info is not a existed type mark, you have to declare field then get it");
 
@@ -497,7 +505,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
         throw new IllegalHandleException(ex);
       }
 
-      FieldInfo<Type> field = new FieldInfo<>(this, flags, name, type, null);
+      FieldInfo<TY> field = new FieldInfo<>(this, flags, name, type, null);
       type.initAnnotations();
       return field;
     });
@@ -539,7 +547,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
    *
    * @throws IllegalHandleException 若此类型声明已经生成为类或者是类型标识*/
   public CodeBlock<Void> declareCinit(){
-    return cinit != null? cinit: (cinit = declareMethod(Modifier.STATIC, CINIT, VOID_TYPE));
+    return clinit != null? clinit : (clinit = declareMethod(Modifier.STATIC, CINIT, VOID_TYPE));
   }
 
   /**声明一个构造函数，返回构造函数体声明对象
@@ -585,6 +593,8 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
   /**声明一个字段，若需要给字段赋予默认常量值，则此字段应当为static，否则你应当在此类型的构造函数中初始化对象的成员字段默认值
    * <p>分配的默认值只能是下列基本类型或由其构成的数组类型的字面常量
    * <pre>{@code
+   *   Class<?>-> AnyClass
+   *   Enum<?> -> AnyEnum.object
    *   String  -> "anythings"
    *   int     -> -2147483648 ~ 2147483647
    *   float   -> -3.4028235E38F ~ 3.4028235E38F
@@ -610,9 +620,9 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     FieldInfo<F> field = (FieldInfo<F>) fieldMap.computeIfAbsent(name, e -> new FieldInfo<>(this, modifiers, name, type, initial));
     elements.add(field);
 
-    if(initial != null && cinit == null
+    if(initial != null && clinit == null
         && (field.initial() instanceof Array || field.initial() instanceof Enum<?>)){
-      cinit = declareCinit();
+      clinit = declareCinit();
     }
 
     return field;
@@ -654,9 +664,8 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
 
     Map<String, Object> map = new HashMap<>(defAttributes);
     for(Element element: elements()){
-      if(!(element instanceof IMethod<?,?>) || !Modifier.isAbstract(((IMethod<?, ?>) element).modifiers()))
+      if(!(element instanceof IMethod<?, ?> met) || !Modifier.isAbstract(((IMethod<?, ?>) element).modifiers()))
         throw new IllegalHandleException("clazz " + this + " was not a annotation type");
-      IMethod<?, ?> met = (IMethod<?, ?>) element;
 
       IClass<?> type = met.returnType();
       if((!isReferenceType(type) && !type.equals(STRING_TYPE))
@@ -698,8 +707,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
   @Override
   public boolean equals(Object o){
     if(this == o) return true;
-    if(!(o instanceof ClassInfo<?>)) return false;
-    ClassInfo<?> classInfo = (ClassInfo<?>) o;
+    if(!(o instanceof ClassInfo<?> classInfo)) return false;
     return Objects.equals(clazz, classInfo.clazz) && realName.equals(classInfo.realName);
   }
 
