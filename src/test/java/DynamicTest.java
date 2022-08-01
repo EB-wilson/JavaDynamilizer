@@ -1,6 +1,5 @@
 import dynamilize.DynamicClass;
 import dynamilize.DynamicMaker;
-import dynamilize.DynamicObject;
 import dynamilize.ProxyMaker;
 import dynamilize.classmaker.ASMGenerator;
 import dynamilize.classmaker.BaseClassLoader;
@@ -10,6 +9,7 @@ import org.objectweb.asm.Opcodes;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 
 @SuppressWarnings("unchecked")
 public class DynamicTest{
@@ -44,17 +44,12 @@ public class DynamicTest{
     };
 
     ProxyMaker proxyMaker = ProxyMaker.getDefault(maker, (s, m, a) -> {
-      System.out.println(m);
+      System.out.println("invoke: " + m + ", params: " + args);
       return m.invoke(s, a);
     });
 
-    DynamicObject<Runner> proxy = proxyMaker.newProxyInstance(Runner.class); //传入委托的基类以构造动态对象
-
-    DynamicObject<Runner> obj = maker.newInstance(Runner.class, dyc); //传入委托的基类以构造动态对象
-
-    obj.self().run(87, true);
-    proxy.self().run(88, false);
-    proxy.self().hashCode();
+    ArrayList<String> list = proxyMaker.newProxyInstance(ArrayList.class).self();
+    list.add("first element");
   }
 
   public static class Runner{

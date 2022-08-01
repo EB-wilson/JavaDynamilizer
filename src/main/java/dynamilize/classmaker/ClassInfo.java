@@ -42,6 +42,8 @@ import java.util.*;
  * }</pre>
  * 这样的过程是繁琐的，但是也是快速的，跳过编译器产生类文件牺牲了可操作性以换取了类的生成速度，建议将行为描述为模板后再基于模板进行变更以提高开发效率*/
 public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
+  public static final LinkedList<IClass<?>> QUEUE = new LinkedList<>();
+  public static final HashSet<IClass<?>> EXCLUDE = new HashSet<>();
   private static final Map<Class<?>, ClassInfo<?>> classMap = new HashMap<>();
 
   private static final String OBJECTTYPEMARK = "Ljava/lang/Object;";
@@ -304,9 +306,6 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     return componentType;
   }
 
-  /**返回标记的类型，如果尚未完成生成，则返回null
-   *
-   * @return 此类型标记标记的类*/
   @Override
   public Class<T> getTypeClass(){
     return isExistedClass()? clazz: null;
@@ -317,30 +316,11 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     return annotationType != null;
   }
 
-  /**获取此类在字节码中的真实名称，例如：java.lang.Object -> Ljava/lang/Object;
-   * <p>特别的，对于基本数据类型：
-   * <pre>{@code
-   * int     -> I
-   * float   -> F
-   * byte    -> B
-   * short   -> S
-   * long    -> J
-   * double  -> D
-   * char    -> C
-   * boolean -> Z
-   * void    -> V
-   * }</pre>
-   *
-   * @return 类的实际名称*/
   @Override
   public String realName(){
     return realName;
   }
 
-  /**获取此类型的字节码类型标识符，即真实名称省去首位的符号L，例如java.lang.Object -> java/lang/Object
-   *
-   * @return 类型的字节标识名称
-   * @see ClassInfo#realName() */
   public String internalName(){
     return (realName.startsWith("L")? realName.replaceFirst("L", ""): realName).replace(";", "");
   }
@@ -374,9 +354,6 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     }
   }
 
-  /**此类型标识是否为已有类型标识
-   *
-   * @return 若标记的类已被JVM加载*/
   @Override
   @SuppressWarnings({"unchecked"})
   public boolean isExistedClass(){
@@ -518,9 +495,32 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     }
 
     IClass<?> ty = target;
-    while(ty != null){
-      if(equals(ty)) return true;
-      ty = ty.superClass();
+    if(!Modifier.isInterface(modifiers())){
+      while(ty != null){
+        if(equals(ty)) return true;
+
+        ty = ty.superClass();
+      }
+    }
+    else{
+      QUEUE.clear();
+      EXCLUDE.clear();
+
+      while(ty != null){
+        for(IClass<?> iClass: ty.interfaces()){
+          if(EXCLUDE.add(iClass)) QUEUE.addFirst(iClass);
+        }
+        while(!QUEUE.isEmpty()){
+          IClass<?> c = QUEUE.removeFirst();
+          if(equals(c)) return true;
+
+          for(IClass<?> iClass: c.interfaces()){
+            if(EXCLUDE.add(iClass)) QUEUE.addFirst(iClass);
+          }
+        }
+
+        ty = ty.superClass();
+      }
     }
 
     return false;

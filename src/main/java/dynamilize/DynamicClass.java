@@ -152,7 +152,7 @@ public class DynamicClass{
         FunctionType type = entry.getType();
         pool.set(
             entry.getName(),
-            entry.modifiable()? (self, args) -> map.get(type).getFunction().invoke(self, args): entry.getFunction(),
+            entry.modifiable()? (self, args) -> map.get(type).<T, Object>getFunction().invoke(self, args): entry.getFunction(),
             entry.getType().getTypes());
       }
     }
@@ -246,10 +246,18 @@ public class DynamicClass{
    * @param name 函数名称
    * @param func 描述函数行为的匿名函数
    * @param argTypes 函数的形式参数类型*/
-  public <S> void setFunction(String name, Function<DynamicObject<S>, ?> func, Class<?>... argTypes){
+  public <S, R> void setFunction(String name, Function<S, R> func, Class<?>... argTypes){
     FunctionType type = FunctionType.inst(argTypes);
     functions.computeIfAbsent(name, n -> new HashMap<>())
         .put(type, new FunctionEntry<>(name, true, func, type));
+  }
+
+  /**同{@link DynamicClass#setFunction(String, Function, Class[])}，只是匿名函数无返回值*/
+  public <S> void setFunction(String name, Function.NonRetFunction<S> func, Class<?>... argTypes){
+    this.<S, Object>setFunction(name, (s, a) -> {
+      func.invoke(s, a);
+      return null;
+    }, argTypes);
   }
 
   /**以lambda模式设置函数，与{@link DynamicClass#setFunction(String, Function, Class[])}相同，但设置的函数不再可变
@@ -257,7 +265,7 @@ public class DynamicClass{
    * @param name 函数名称
    * @param func 描述函数行为的匿名函数
    * @param argTypes 函数的形式参数类型*/
-  public <S> void setFinalFunc(String name, Function<DynamicObject<S>, ?> func, Class<?>... argTypes){
+  public <S, R> void setFinalFunc(String name, Function<S, R> func, Class<?>... argTypes){
     Map<FunctionType, MethodEntry> map = functions.computeIfAbsent(name, n -> new HashMap<>());
     FunctionType type = FunctionType.inst(argTypes);
 
@@ -266,6 +274,14 @@ public class DynamicClass{
       throw new IllegalHandleException("cannot modify a final method existed");
 
     map.put(type, new FunctionEntry<>(name, false, func, type));
+  }
+
+  /**同{@link DynamicClass#setFinalFunc(String, Function, Class[])}，只是匿名函数无返回值*/
+  public <S> void setFinalFunc(String name, Function.NonRetFunction<S> func, Class<?>... argTypes){
+    this.<S, Object>setFinalFunc(name, (s, a) -> {
+      func.invoke(s, a);
+      return null;
+    }, argTypes);
   }
 
   /**常量模式设置变量初始值，行为与{@link DynamicClass#visitClass(Class)}字段部分相同

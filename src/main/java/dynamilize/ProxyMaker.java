@@ -219,7 +219,7 @@ public abstract class ProxyMaker{
 
     private final MethodEntry entry;
 
-    private final Function<DynamicObject<?>, Object> function;
+    private final Function<?, Object> function;
 
     private FunctionCaller(MethodEntry functionEntry){
       this.entry = functionEntry;
@@ -238,8 +238,9 @@ public abstract class ProxyMaker{
     }
 
     @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public Object invoke(DynamicObject<?> self, ArgumentList args){
-      return function.invoke(self, args);
+      return function.invoke((DynamicObject) self, args);
     }
 
     @Override
@@ -248,12 +249,32 @@ public abstract class ProxyMaker{
     }
   }
 
+  /**调用封装器，提供了一个方法{@link Caller#invoke(DynamicObject, ArgumentList)}方法来直接调用这个对象封装的方法或者函数*/
   public interface Caller{
     String getName();
 
     FunctionType getType();
 
     Object invoke(DynamicObject<?> self, ArgumentList args);
+
+    default Object invoke(DynamicObject<?> self, Object... args){
+      ArgumentList lis = ArgumentList.as(args);
+      try{
+        return invoke(self, lis);
+      }finally{
+        lis.type().recycle();
+        lis.recycle();
+      }
+    }
+
+    default Object invoke(DynamicObject<?> self, FunctionType type, Object... args){
+      ArgumentList lis = ArgumentList.asWithType(type, args);
+      try{
+        return invoke(self, lis);
+      }finally{
+        lis.recycle();
+      }
+    }
   }
 
   public interface ProxyHandler{

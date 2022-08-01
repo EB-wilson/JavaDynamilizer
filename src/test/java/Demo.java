@@ -1,5 +1,3 @@
-import dynamilize.IllegalHandleException;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -15,14 +13,12 @@ public class Demo{
 
     Class<?> typ = Demo.class;
     public String set(){
-      switch(3){
-        case -1 : System.out.println(0); return "k";
-        case 1 : System.out.println(0); return "v";
-        case 4 : System.out.println(0); return "p";
-      }
-      Class<Integer> i = int.class;
-      throw new IllegalHandleException();
+      Object iny = null;
 
+      Object[] i = (Object[]) iny;
+      typ = (Class<?>) iny;
+
+      return Arrays.toString(i);
     }
 
   public static void main(String[] args){

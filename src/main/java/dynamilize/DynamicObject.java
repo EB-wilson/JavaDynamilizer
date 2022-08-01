@@ -57,7 +57,7 @@ public interface DynamicObject<Self>{
    * @param name 函数名称
    * @param type 函数的参数类型
    * @return 指定函数的匿名表示*/
-  <R> Function<DynamicObject<Self>, R> getFunc(String name, FunctionType type);
+  <R> Function<Self, R> getFunc(String name, FunctionType type);
 
   /**以lambda模式设置对象的成员函数，lambda模式下对对象的函数变更仅对此对象有效，变更即时生效,
    * 若需要使变更对所有实例都生效，则应当对此对象的动态类型引用{@link DynamicClass#visitClass(Class)}方法变更行为样版
@@ -67,7 +67,15 @@ public interface DynamicObject<Self>{
    * @param name 设置的函数名称
    * @param func 描述函数行为的匿名函数
    * @param argTypes 形式参数的类型列表*/
-  <R> void setFunc(String name, Function<DynamicObject<Self>, R> func, Class<?>... argTypes);
+  <R> void setFunc(String name, Function<Self, R> func, Class<?>... argTypes);
+
+  /**与{@link DynamicObject#setFunc(String, Function, Class[])}效果一致，只是传入的函数没有返回值*/
+  default void setFunc(String name, Function.NonRetFunction<Self> func, Class<?>... argTypes){
+    setFunc(name, (s, a) -> {
+      func.invoke(s, a);
+      return null;
+    }, argTypes);
+  }
 
   /**执行对象的指定成员函数
    *
@@ -105,7 +113,7 @@ public interface DynamicObject<Self>{
    * @return 函数返回值*/
   default <R> R invokeFunc(String name, ArgumentList args){
     FunctionType type = args.type();
-    Function<DynamicObject<Self>, R> res = getFunc(name, type);
+    Function<Self, R> res = getFunc(name, type);
 
     if(res == null)
       throw new IllegalHandleException("no such method declared: " + name);
@@ -113,7 +121,7 @@ public interface DynamicObject<Self>{
     return res.invoke( this, args);
   }
 
-  default Self self(){
-    return (Self) this;
+  default <T extends Self> T self(){
+    return (T) this;
   }
 }

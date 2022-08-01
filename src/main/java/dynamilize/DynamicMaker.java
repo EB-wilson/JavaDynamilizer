@@ -66,9 +66,9 @@ public abstract class DynamicMaker{
   public static final IMethod<DataPool, Object> GET = DATA_POOL_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "get", STRING_TYPE);
   public static final IMethod<DataPool, Void> SETVAR = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", STRING_TYPE, ClassInfo.OBJECT_TYPE);
   public static final IMethod<DataPool, Void> SETFUNC = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", STRING_TYPE, FUNCTION_TYPE, ClassInfo.CLASS_TYPE.asArray());
-  public static final IMethod<DataPool, Void> SET_OWNER = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "setOwner", ClassInfo.OBJECT_TYPE);
+  public static final IMethod<DataPool, Void> SET_OWNER = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "setOwner", DYNAMIC_OBJECT_TYPE);
   public static final IMethod<DataPool, Function> SELECT = DATA_POOL_TYPE.getMethod(FUNCTION_TYPE, "select", STRING_TYPE, FUNCTION_TYPE_TYPE);
-  public static final IMethod<DynamicObject, Object> INVOKE = DYNAMIC_OBJECT_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "invokeFunc", STRING_TYPE, ClassInfo.OBJECT_TYPE.asArray());
+  public static final IMethod<DynamicObject, Object> INVOKE = DYNAMIC_OBJECT_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "invokeFunc", FUNCTION_TYPE_TYPE, STRING_TYPE, ClassInfo.OBJECT_TYPE.asArray());
 
   private static final Map<String, Set<FunctionType>> OVERRIDES = new HashMap<>();
   private static final Set<Class<?>> INTERFACE_TEMP = new HashSet<>();
@@ -261,7 +261,14 @@ public abstract class DynamicMaker{
    * @param interfaces 接口列表
    * @return 由基类名称与全部接口名称的哈希值构成的打包名称*/
   public static <T> String getDynamicName(Class<T> baseClass, Class<?>... interfaces){
-    return baseClass.getName() + "$dynamic$" + Arrays.hashCode(Arrays.stream(interfaces).map(Class::getName).toArray());
+    return ensurePackage(baseClass.getName()) + "$dynamic$" + FunctionType.typeNameHash(interfaces);
+  }
+
+  private static String ensurePackage(String name){
+    if(name.startsWith("java.")){
+      return name.replaceFirst("java\\.", "lava.");
+    }
+    return name;
   }
 
   /**创建动态实例类型的类型标识，这应当覆盖所有委托目标类的方法和实现的接口中的方法，若超类的某一成员方法不是抽象的，需保留对超类方法的入口，
@@ -399,21 +406,23 @@ public abstract class DynamicMaker{
 
           callSuperCaseMap.put(method, callSuperCaseMap.size());
 
+          String typeF = methodName + "$" + FunctionType.typeNameHash(method.getParameterTypes());
+          FieldInfo<FunctionType> funType = classInfo.declareField(
+              Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL,
+              typeF,
+              FUNCTION_TYPE_TYPE,
+              null
+          );
+
           // private static final FunctionType FUNCTION_TYPE$*name*;
           // static {
           //   ...
-          //   FUNCTION_TYPE$*name* = FunctionType.as(*paramTypes*);
+          //   FUNCTION_TYPE$*signature* = FunctionType.as(*paramTypes*);
           //   methodIndex.put(*signature*, *index*);
           //   ...
           // }
           {
-            FieldInfo<FunctionType> field = classInfo.declareField(
-                Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL,
-                "FUNCTION_TYPE$" + methodName,
-                FUNCTION_TYPE_TYPE,
-                null
-            );
-
+            String signature = FunctionType.signature(method);
             clinit.loadConstant(tempInt, method.getParameterCount());
             clinit.newArray(
                 CLASS_TYPE,
@@ -435,9 +444,9 @@ public abstract class DynamicMaker{
                 tempClasses
             );
 
-            clinit.assign(null, tempType, field);
+            clinit.assign(null, tempType, funType);
 
-            clinit.loadConstant(tempSign, FunctionType.signature(method));
+            clinit.loadConstant(tempSign, signature);
             clinit.loadConstant(tempInt, callSuperCaseMap.get(method));
 
             clinit.invoke(
@@ -457,7 +466,7 @@ public abstract class DynamicMaker{
           }
 
           // public *returnType* *name*(*parameters*){
-          //   *[return]* this.invokeFunc(FUNCTION_TYPE$*name* ,"*name*", parameters);
+          //   *[return]* this.invokeFunc(FUNCTION_TYPE$*signature* ,"*name*", parameters);
           // }
           {
             CodeBlock<?> code = classInfo.declareMethod(
@@ -467,9 +476,12 @@ public abstract class DynamicMaker{
                 Parameter.asParameter(method.getParameters())
             );
 
+            ILocal<FunctionType> type = code.local(FUNCTION_TYPE_TYPE);
             ILocal<String> met = code.local(STRING_TYPE);
             ILocal<Object[]> params = code.local(ClassInfo.OBJECT_TYPE.asArray());
             ILocal<Integer> length = code.local(ClassInfo.INT_TYPE);
+
+            code.assign(null, funType, type);
 
             code.loadConstant(met, method.getName());
 
@@ -484,10 +496,10 @@ public abstract class DynamicMaker{
 
             if(returnType != ClassInfo.VOID_TYPE){
               ILocal res = code.local(returnType);
-              code.invoke(code.getThis(), INVOKE, res, met, params);
+              code.invoke(code.getThis(), INVOKE, res, type, met, params);
               code.returnValue(res);
             }
-            else code.invoke(code.getThis(), INVOKE, null, met, params);
+            else code.invoke(code.getThis(), INVOKE, null, type, met, params);
           }
 
           // public *returnType* *name*$super(*parameters*){
@@ -653,7 +665,7 @@ public abstract class DynamicMaker{
       code.returnValue(result);
     }
 
-    // <T> void setVar(String name, T value){
+    // public <T> void setVar(String name, T value){
     //   this.$datapool$.set(name, value);
     // }
     {
@@ -673,7 +685,7 @@ public abstract class DynamicMaker{
       code.returnVoid();
     }
 
-    // <R> Function<Self, R> getFunc(String name, FunctionType type){
+    // public <R> Function<Self, R> getFunc(String name, FunctionType type){
     //   return this.$datapool$.select(name, type);
     // }
     {
@@ -694,7 +706,7 @@ public abstract class DynamicMaker{
       code.returnValue(fnc);
     }
 
-    // <R> void setFunc(String name, Function<Self, R> func, Class<?>... argTypes){
+    // public <R> void setFunc(String name, Function<Self, R> func, Class<?>... argTypes){
     //   this.$datapool$.set(name, func, argTypes);
     // }
     {

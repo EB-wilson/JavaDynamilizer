@@ -656,7 +656,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       methodVisitor.visitInsn(RETURN);
     }
     else{
-      int opc = switch(getTypeChar(iReturn.returnValue().type(), true)){
+      IClass<?> retType = iReturn.returnValue().type();
+      int opc = switch(getTypeChar(retType, true)){
         case 'I' -> IRETURN;
         case 'L' -> LRETURN;
         case 'F' -> FRETURN;
@@ -667,14 +668,14 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       ;
 
       methodVisitor.visitVarInsn(
-          getLoadType(iReturn.returnValue().type()),
+          getLoadType(retType),
           localIndex.get(iReturn.returnValue().name())
       );
 
       if(opc == ARETURN){
         methodVisitor.visitTypeInsn(
             CHECKCAST,
-            iReturn.returnValue().type().internalName()
+            retType.isArray()? retType.realName(): retType.internalName()
         );
       }
 
@@ -1005,7 +1006,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         int opc = CASTTABLE.get(getTypeChar(source, true)).get(getTypeChar(target, false));
         methodVisitor.visitInsn(opc);
       }
-      else methodVisitor.visitTypeInsn(CHECKCAST, target.internalName());
+      else methodVisitor.visitTypeInsn(CHECKCAST, target.isArray()? target.realName(): target.internalName());
     }
   }
 

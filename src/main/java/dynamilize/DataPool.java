@@ -13,7 +13,7 @@ import java.util.Map;
 public class DataPool<Owner>{
   private final DataPool<Owner> superPool;
   
-  private Owner owner;
+  private DynamicObject<Owner> owner;
 
   private final Map<String, Map<FunctionType, Function<Owner, ?>>> funcPool = new HashMap<>();
   private final Map<String, IVariable> varPool = new HashMap<>();
@@ -29,7 +29,7 @@ public class DataPool<Owner>{
   /**绑定到一个{@linkplain DynamicObject 动态对象}，在动态对象创建后立即调用，通常，这应当生成为动态委托类的构造函数语句
    *
    * @param owner 此池的所有者*/
-  public void setOwner(Owner owner){
+  public void setOwner(DynamicObject<Owner> owner){
     this.owner = owner;
     if(superPool != null) superPool.setOwner(owner);
   }
@@ -37,7 +37,7 @@ public class DataPool<Owner>{
   /**获得此池绑定到的{@linkplain DynamicObject 动态对象}
    *
    * @return 池的所有者*/
-  public Owner getOwner(){
+  public DynamicObject<Owner> getOwner(){
     return owner;
   }
 
@@ -119,7 +119,9 @@ public class DataPool<Owner>{
     return var.get();
   }
 
-  /**将类层次结构中定义的函数输出为匿名函数，如果函数没有被定义，则会抛出异常
+  /**将类层次结构中定义的函数输出为匿名函数，会优先查找类型签名相同的函数，若未查找到相同的才会转入类型签名匹配的函数，
+   * 因此调用函数在性能需求较高的情况下，建议对实参列表明确声明类型的签名，这可以有效提高重载决策的速度
+   * <p>如果函数没有被定义，则会抛出异常
    *
    * @param name 函数的名称
    * @param type 函数的参数类型
@@ -128,19 +130,35 @@ public class DataPool<Owner>{
   @SuppressWarnings("rawtypes")
   public <R> Function<Owner, R> select(String name, FunctionType type){
     Map<FunctionType, Function<Owner, R>> map = (Map) funcPool.get(name);
-    if(map != null){
-      Function<Owner, R> res = map.get(type);
-      if(res != null) return res;
+    Function<Owner, R> res;
 
+    if(map != null){
+      res = map.get(type);
+      if(res != null) return res;
+    }
+
+    if(superPool != null) return superPool.select(name, type);
+
+    res = selectMatch(name, type);
+    if(res != null) return res;
+
+    throw new NoSuchMethodError("no such method with name " + name);
+  }
+
+  @SuppressWarnings("rawtypes")
+  private <R> Function<Owner, R> selectMatch(String name, FunctionType type){
+    Map<FunctionType, Function<Owner, R>> map = (Map) funcPool.get(name);
+    if(map != null){
       for(Map.Entry<FunctionType, Function<Owner, R>> entry: map.entrySet()){
         if(entry.getKey().match(type.getTypes())){
           return entry.getValue();
         }
       }
     }
-    if(superPool != null) return superPool.select(name, type);
 
-    throw new NoSuchMethodError("no such method with name " + name);
+    if(superPool != null) return superPool.selectMatch(name, type);
+
+    return null;
   }
 
   /**获得池的只读对象*/

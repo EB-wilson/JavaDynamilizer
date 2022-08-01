@@ -117,6 +117,10 @@ public class FunctionType{
     return method.getName() + FunctionType.from(method) + ClassInfo.asType(method.getReturnType()).realName();
   }
 
+  public static int typeNameHash(Class<?>[] types){
+    return Arrays.hashCode(Arrays.stream(types).map(Class::getName).toArray());
+  }
+
   public boolean match(Object... args){
     return match(unwrapped(toTypes(args)));
   }

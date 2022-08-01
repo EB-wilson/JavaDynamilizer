@@ -1,5 +1,6 @@
 package dynamilize;
 
+import java.util.Arrays;
 import java.util.Stack;
 
 /**实参列表的封装对象，记录了一份实际参数列表，提供了一个泛型获取参数的方法，用于减少函数引用时所需的冗余类型转换。
@@ -78,5 +79,11 @@ public class ArgumentList{
    * @return 该实参列表的形式参数类型*/
   public FunctionType type(){
     return type;
+  }
+
+  @Override
+  public String toString(){
+    String arg = Arrays.toString(args);
+    return "(" + arg.substring(1, arg.length() - 1) + ")";
   }
 }
