@@ -30,6 +30,10 @@ assemble{
   dependsOn(shadowJar)
 }
 
+generateMetadataFileForMavenPublication{
+  dependsOn(shadowJar)
+}
+
 allprojects{
   tasks.withType(JavaCompile){
     options.compilerArgs.addAll(['--release', '8'])
