@@ -14,8 +14,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-import static dynamilize.classmaker.ClassInfo.CLASS_TYPE;
-import static dynamilize.classmaker.ClassInfo.STRING_TYPE;
+import static dynamilize.classmaker.ClassInfo.*;
 
 /**基于ASM字节码操作框架实现的默认类型生成器，*/
 public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
@@ -139,6 +138,9 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   public void visitLocal(ILocal<?> local){
     super.visitLocal(local);
     localIndex.put(local.name(), localIndex.size());
+    if(local.type() == LONG_TYPE || local.type() == DOUBLE_TYPE){
+      localIndex.put(local.name() + "$high", localIndex.size());
+    }
   }
 
   @Override
@@ -164,6 +166,9 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       for(ILocal<?> parameter: method.block().getParamAll()){
         localMap.put(parameter.name(), parameter);
         localIndex.put(parameter.name(), localIndex.size());
+        if(parameter.type() == LONG_TYPE || parameter.type() == DOUBLE_TYPE){
+          localIndex.put(parameter.name() + "$high", localIndex.size());
+        }
       }
 
       super.visitMethod(method);
@@ -171,7 +176,6 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       Label endLine = new Label();
       methodVisitor.visitLabel(endLine);
 
-      int localCount = 0;
       for(Map.Entry<String, ILocal<?>> entry: localMap.entrySet()){
         methodVisitor.visitLocalVariable(
             entry.getKey(),
@@ -179,11 +183,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
             null,
             firstLine,
             endLine,
-            localCount
+            localIndex.get(entry.getValue().name())
         );
-
-        IClass<?> type = entry.getValue().type();
-        localCount += type.equals(ClassInfo.LONG_TYPE) || type.equals(ClassInfo.DOUBLE_TYPE)? 2: 1;
       }
 
       methodVisitor.visitMaxs(0, 0);//已设置自动计算模式，参数无意义

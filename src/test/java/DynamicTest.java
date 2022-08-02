@@ -9,7 +9,6 @@ import org.objectweb.asm.Opcodes;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 
 @SuppressWarnings("unchecked")
 public class DynamicTest{
@@ -44,16 +43,16 @@ public class DynamicTest{
     };
 
     ProxyMaker proxyMaker = ProxyMaker.getDefault(maker, (s, m, a) -> {
-      System.out.println("invoke: " + m + ", params: " + args);
+      System.out.println("invoke: " + m + ", params: " + a);
       return m.invoke(s, a);
     });
 
-    ArrayList<String> list = proxyMaker.newProxyInstance(ArrayList.class).self();
-    list.add("first element");
+    Runner list = proxyMaker.newProxyInstance(Runner.class).self();
+    list.run(89, 89, false);
   }
 
   public static class Runner{
-    public void run(int time, boolean boo){
+    public void run(long time, long i, boolean boo){
       System.out.println(time + " default super " + boo);
     }
   }

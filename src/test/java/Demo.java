@@ -12,13 +12,11 @@ public class Demo{
     static int i;
 
     Class<?> typ = Demo.class;
-    public String set(){
-      Object iny = null;
+    public double set(){
+      double a = i;
+      double b = a + i;
 
-      Object[] i = (Object[]) iny;
-      typ = (Class<?>) iny;
-
-      return Arrays.toString(i);
+      return a + b;
     }
 
   public static void main(String[] args){
