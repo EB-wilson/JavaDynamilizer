@@ -890,7 +890,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     public void addCase(T caseKey, Label caseJump){
       casesMap.put(caseKey, caseJump);
 
-      if(isTable) checkTable();
+      checkTable();
     }
 
     protected void checkTable(){
@@ -913,10 +913,6 @@ public class CodeBlock<R> implements ICodeBlock<R>{
           else if(t instanceof Character c){
             max = Math.max(max, c);
             min = Math.min(min, c);
-          }
-          else if(t instanceof Boolean b){
-            max = Math.max(max, b? 1: 0);
-            min = Math.min(min, b? 1: 0);
           }
           else if(t instanceof Enum<?> e){
             max = Math.max(max, e.ordinal());

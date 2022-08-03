@@ -5,22 +5,18 @@ public interface Function<S, R>{
   R invoke(DynamicObject<S> self, ArgumentList args);
 
   default R invoke(DynamicObject<S> self, Object... args){
-    ArgumentList argLis = ArgumentList.as(args);
-    try{
-      return invoke(self, argLis);
-    }finally{
-      argLis.type().recycle();
-      argLis.recycle();
-    }
+    ArgumentList lis = ArgumentList.as(args);
+    R r = invoke(self, lis);
+    lis.type().recycle();
+    lis.recycle();
+    return r;
   }
 
   default R invoke(DynamicObject<S> self, FunctionType type, Object... args){
-    ArgumentList argLis = ArgumentList.asWithType(type, args);
-    try{
-      return invoke(self, argLis);
-    }finally{
-      argLis.recycle();
-    }
+    ArgumentList lis = ArgumentList.asWithType(type, args);
+    R r = invoke(self, lis);
+    lis.recycle();
+    return r;
   }
 
   interface NonRetFunction<S>{

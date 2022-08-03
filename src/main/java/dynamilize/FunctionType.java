@@ -16,9 +16,11 @@ public class FunctionType{
   private static final LinkedList<FunctionType> RECYCLE_POOL = new LinkedList<>();
 
   private Class<?>[] paramType;
+  private int hash;
 
   private FunctionType(Class<?>... paramType){
     this.paramType = paramType;
+    hash = Arrays.hashCode(paramType);
   }
 
   //此类存在频繁的调用，数据量小，使用流处理数据会产生不必要的性能花销，使用for遍历取代流处理
@@ -68,6 +70,7 @@ public class FunctionType{
     if(RECYCLE_POOL.isEmpty()) return new FunctionType(paramType);
     FunctionType res = RECYCLE_POOL.removeFirst();
     res.paramType = paramType;
+    res.hash = Arrays.hashCode(paramType);
     return res;
   }
 
@@ -114,7 +117,15 @@ public class FunctionType{
   }
 
   public static String signature(Method method){
-    return method.getName() + FunctionType.from(method) + ClassInfo.asType(method.getReturnType()).realName();
+    return method.getName() + FunctionType.from(method);
+  }
+
+  public static String signature(String name, Class<?>... argTypes){
+    return name + FunctionType.inst(argTypes);
+  }
+
+  public static String signature(String name, FunctionType type){
+    return name + type;
   }
 
   public static int typeNameHash(Class<?>[] types){
@@ -144,6 +155,7 @@ public class FunctionType{
     if(RECYCLE_POOL.size() >= MAX_RECYCLE) return;
 
     paramType = EMPTY;
+    hash = -1;
     RECYCLE_POOL.add(this);
   }
 
@@ -151,12 +163,12 @@ public class FunctionType{
   public boolean equals(Object o){
     if(this == o) return true;
     if(!(o instanceof FunctionType that)) return false;
-    return Arrays.equals(paramType, that.paramType);
+    return paramType.length == that.paramType.length && hashCode() == o.hashCode();
   }
 
   @Override
   public int hashCode(){
-    return Arrays.hashCode(paramType);
+    return hash;
   }
 
   @Override
@@ -164,7 +176,7 @@ public class FunctionType{
     StringBuilder b = new StringBuilder("(");
 
     for(Class<?> clazz: paramType){
-      b.append(ClassInfo.asType(clazz).internalName());
+      b.append(ClassInfo.asType(clazz).realName());
     }
     b.append(")");
 

@@ -2,6 +2,7 @@ package dynamilize;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**用于存储和处置动态对象数据的信息容器，不应从外部访问，每一个动态对象都会绑定一个数据池存放对象的变量/函数等信息。
  * <p>对于一个{@linkplain DynamicClass 动态类}的实例，实例的数据池一定会有一个父池，这个池以动态类的直接超类描述的信息进行初始化。
@@ -14,6 +15,8 @@ public class DataPool<Owner>{
   private final DataPool<Owner> superPool;
   
   private DynamicObject<Owner> owner;
+
+  private final Map<String, Function<Owner, ?>> signatureMap = new TreeMap<>();
 
   private final Map<String, Map<FunctionType, Function<Owner, ?>>> funcPool = new HashMap<>();
   private final Map<String, IVariable> varPool = new HashMap<>();
@@ -182,21 +185,17 @@ public class DataPool<Owner>{
     /**@see DynamicObject#invokeFunc(String, Object...)*/
     public <R> R invokeFunc(String name, Object... args){
       ArgumentList lis = ArgumentList.as(args);
-      try{
-        return invokeFunc(name, lis);
-      }finally{
-        lis.type().recycle();
-        lis.recycle();
-      }
+      R r = invokeFunc(name, lis);
+      lis.type().recycle();
+      lis.recycle();
+      return r;
     }
 
     public <R> R invokeFunc(FunctionType type, String name, Object... args){
       ArgumentList lis = ArgumentList.asWithType(type, args);
-      try{
-        return invokeFunc(name, lis);
-      }finally{
-        lis.recycle();
-      }
+      R r = invokeFunc(name, lis);
+      lis.recycle();
+      return r;
     }
 
     /**@see DynamicObject#invokeFunc(String, ArgumentList)*/

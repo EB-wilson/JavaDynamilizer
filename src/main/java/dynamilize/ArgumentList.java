@@ -1,24 +1,24 @@
 package dynamilize;
 
 import java.util.Arrays;
-import java.util.Stack;
+import java.util.LinkedList;
 
 /**实参列表的封装对象，记录了一份实际参数列表，提供了一个泛型获取参数的方法，用于减少函数引用时所需的冗余类型转换。
  * <p>参数表对象为可复用对象，引用完毕后请使用{@link ArgumentList#recycle()}回收对象以减少堆内存更新频率
  *
  * @author EBwilson */
 public class ArgumentList{
-  public static final Object[][] argLenArray = new Object[32][];
+  public static final Object[][] ARG_LEN_MAP = new Object[32][];
 
   static {
-    for(int i = 0; i < argLenArray.length; i++){
-      argLenArray[i] = new Object[i];
+    for(int i = 0; i < ARG_LEN_MAP.length; i++){
+      ARG_LEN_MAP[i] = new Object[i];
     }
   }
 
   private static final int MAX_INSTANCE_STACK = 16384;
 
-  private static final Stack<ArgumentList> INSTANCES = new Stack<>();
+  private static final LinkedList<ArgumentList> INSTANCES = new LinkedList<>();
 
   private Object[] args;
   private FunctionType type;

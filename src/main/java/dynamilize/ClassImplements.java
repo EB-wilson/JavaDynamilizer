@@ -3,14 +3,16 @@ package dynamilize;
 import java.util.Arrays;
 import java.util.Objects;
 
-@SuppressWarnings("ClassCanBeRecord")
 class ClassImplements<T>{
   final Class<T> base;
   final Class<?>[] interfaces;
+  private int hash;
 
   public ClassImplements(Class<T> base, Class<?>[] interfaces){
     this.base = base;
     this.interfaces = interfaces;
+    this.hash = Objects.hash(base);
+    hash = 31*hash + Arrays.hashCode(interfaces);
   }
 
   @Override
@@ -22,13 +24,11 @@ class ClassImplements<T>{
   public boolean equals(Object o){
     if(this == o) return true;
     if(!(o instanceof ClassImplements<?> that)) return false;
-    return base.equals(that.base) && Arrays.equals(interfaces, that.interfaces);
+    return base.equals(that.base) && interfaces.length == that.interfaces.length && hash == ((ClassImplements<?>) o).hash;
   }
 
   @Override
   public int hashCode(){
-    int result = Objects.hash(base);
-    result = 31*result + Arrays.hashCode(interfaces);
-    return result;
+    return hash;
   }
 }

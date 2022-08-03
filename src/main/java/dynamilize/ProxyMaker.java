@@ -259,21 +259,17 @@ public abstract class ProxyMaker{
 
     default Object invoke(DynamicObject<?> self, Object... args){
       ArgumentList lis = ArgumentList.as(args);
-      try{
-        return invoke(self, lis);
-      }finally{
-        lis.type().recycle();
-        lis.recycle();
-      }
+      Object r = invoke(self, lis);
+      lis.type().recycle();
+      lis.recycle();
+      return r;
     }
 
     default Object invoke(DynamicObject<?> self, FunctionType type, Object... args){
       ArgumentList lis = ArgumentList.asWithType(type, args);
-      try{
-        return invoke(self, lis);
-      }finally{
-        lis.recycle();
-      }
+      Object r = invoke(self, lis);
+      lis.recycle();
+      return r;
     }
   }
 

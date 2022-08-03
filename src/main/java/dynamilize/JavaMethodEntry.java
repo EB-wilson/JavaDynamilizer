@@ -9,7 +9,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 
-import static dynamilize.ArgumentList.argLenArray;
+import static dynamilize.ArgumentList.ARG_LEN_MAP;
 
 /**对{@linkplain DynamicClass#visitClass(Class) 行为样版}中方法描述的入口，在动态类中描述子实例的某一函数行为。
  * <p>方法入口的运行实际上是对样版方法的引用，因此需要确保样版方法所在的类始终有效，方法入口会生成这个方法的入口函数提供给动态对象使用
@@ -59,7 +59,7 @@ public class JavaMethodEntry implements MethodEntry{
 
       defFunc = (self, args) -> {
         Object[] argsArray = args.args();
-        Object[] realArgArr = argLenArray[thisP? argsArray.length + 1: argsArray.length];
+        Object[] realArgArr = ARG_LEN_MAP[thisP? argsArray.length + 1: argsArray.length];
         if(thisP){
           realArgArr[0] = self;
           if(argsArray.length != 0) System.arraycopy(argsArray, 0, realArgArr, 1, realArgArr.length);

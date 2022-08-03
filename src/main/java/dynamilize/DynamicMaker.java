@@ -57,11 +57,11 @@ public abstract class DynamicMaker{
   public static final ClassInfo<Function> FUNCTION_TYPE = ClassInfo.asType(Function.class);
   public static final ClassInfo<DataPool.ReadOnlyPool> READONLY_POOL_TYPE = ClassInfo.asType(DataPool.ReadOnlyPool.class);
   public static final ClassInfo<Integer> INTEGER_CLASS_TYPE = ClassInfo.asType(Integer.class);
-  public static final ClassInfo<Map> MAP_TYPE = ClassInfo.asType(Map.class);
+  public static final ClassInfo<HashMap> HASH_MAP_TYPE = ClassInfo.asType(HashMap.class);
 
-  public static final IMethod<Map, Object> MAP_GET = MAP_TYPE.getMethod(OBJECT_TYPE, "get", OBJECT_TYPE);
+  public static final IMethod<HashMap, Object> MAP_GET = HASH_MAP_TYPE.getMethod(OBJECT_TYPE, "get", OBJECT_TYPE);
   public static final IMethod<Integer, Integer> VALUE_OF = INTEGER_CLASS_TYPE.getMethod(INTEGER_CLASS_TYPE, "valueOf", INT_TYPE);
-  public static final IMethod<Map, Object> PUT = MAP_TYPE.getMethod(OBJECT_TYPE, "put", OBJECT_TYPE, OBJECT_TYPE);
+  public static final IMethod<HashMap, Object> MAP_PUT = HASH_MAP_TYPE.getMethod(OBJECT_TYPE, "put", OBJECT_TYPE, OBJECT_TYPE);
   public static final IMethod<DataPool, DataPool.ReadOnlyPool> GET_SUPER = DATA_POOL_TYPE.getMethod(READONLY_POOL_TYPE, "getSuper");
   public static final IMethod<DataPool, Object> GET = DATA_POOL_TYPE.getMethod(ClassInfo.OBJECT_TYPE, "get", STRING_TYPE);
   public static final IMethod<DataPool, Void> SETVAR = DATA_POOL_TYPE.getMethod(ClassInfo.VOID_TYPE, "set", STRING_TYPE, ClassInfo.OBJECT_TYPE);
@@ -75,6 +75,8 @@ public abstract class DynamicMaker{
   private static final Class[] EMPTY_CLASSES = new Class[0];
   public static final ILocal[] LOCALS_EMP = new ILocal[0];
   public static final ClassInfo<IllegalStateException> STATE_EXCEPTION_TYPE = ClassInfo.asType(IllegalStateException.class);
+  public static final ClassInfo<ArgumentList> ARG_LIST_TYPE = ClassInfo.asType(ArgumentList.class);
+  public static final FieldInfo<Object[][]> ARG_LEN_MAP = ARG_LIST_TYPE.getField(OBJECT_TYPE.asArray().asArray(), "ARG_LEN_MAP");
 
   private final JavaHandleHelper helper;
 
@@ -215,7 +217,7 @@ public abstract class DynamicMaker{
       CallSuperMethod callSuper = method.getAnnotation(CallSuperMethod.class);
       if(callSuper != null){
         String name = callSuper.srcMethod();
-        String signature = name + FunctionType.from(method) + ClassInfo.asType(method.getReturnType()).realName();
+        String signature = FunctionType.signature(name, method.getParameterTypes());
         basePool.set(
             name,
             (self, args) -> ((SuperInvoker)self).invokeSuper(signature, args.args()),
@@ -309,10 +311,10 @@ public abstract class DynamicMaker{
         null
     );
 
-    FieldInfo<Map> methodIndex = classInfo.declareField(
+    FieldInfo<HashMap> methodIndex = classInfo.declareField(
         Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL,
         "methodIndex",
-        MAP_TYPE,
+        HASH_MAP_TYPE,
         null
     );
 
@@ -322,9 +324,9 @@ public abstract class DynamicMaker{
     };
 
     CodeBlock<Void> clinit = classInfo.getClinitBlock();
-    ILocal<Map> caseIndex = clinit.local(MAP_TYPE);
+    ILocal<HashMap> caseIndex = clinit.local(HASH_MAP_TYPE);
     clinit.newInstance(
-        (MethodInfo)ClassInfo.asType(HashMap.class).getConstructor(),
+        ClassInfo.asType(HashMap.class).getConstructor(),
         caseIndex
     );
     clinit.assign(null, caseIndex, methodIndex);
@@ -458,7 +460,7 @@ public abstract class DynamicMaker{
 
             clinit.invoke(
                 caseIndex,
-                PUT,
+                MAP_PUT,
                 null,
                 tempSign,
                 tempIndexWrap
@@ -478,23 +480,27 @@ public abstract class DynamicMaker{
 
             ILocal<FunctionType> type = code.local(FUNCTION_TYPE_TYPE);
             ILocal<String> met = code.local(STRING_TYPE);
-            ILocal<Object[]> params = code.local(ClassInfo.OBJECT_TYPE.asArray());
-            ILocal<Integer> length = code.local(ClassInfo.INT_TYPE);
 
             code.assign(null, funType, type);
 
             code.loadConstant(met, method.getName());
 
+            ILocal<Object[]> params = code.local(OBJECT_TYPE.asArray());
+            ILocal<Object[][]> paramList = code.local(OBJECT_TYPE.asArray().asArray());
+            ILocal<Integer> length = code.local(INT_TYPE);
             code.loadConstant(length, method.getParameterCount());
-            code.newArray(ClassInfo.OBJECT_TYPE, params, length);
+            code.assign(null, ARG_LEN_MAP, paramList);
+            code.arrayGet(paramList, length, params);
 
-            ILocal<Integer> index = code.local(ClassInfo.INT_TYPE);
-            for(int i = 0; i < code.getParamList().size(); i++){
-              code.loadConstant(index, i);
-              code.arrayPut(params, index, code.getRealParam(i));
+            if(method.getParameterCount() > 0){
+              ILocal<Integer> index = code.local(INT_TYPE);
+              for(int i = 0; i < code.getParamList().size(); i++){
+                code.loadConstant(index, i);
+                code.arrayPut(params, index, code.getRealParam(i));
+              }
             }
 
-            if(returnType != ClassInfo.VOID_TYPE){
+            if(returnType != VOID_TYPE){
               ILocal res = code.local(returnType);
               code.invoke(code.getThis(), INVOKE, res, type, met, params);
               code.returnValue(res);
@@ -502,12 +508,12 @@ public abstract class DynamicMaker{
             else code.invoke(code.getThis(), INVOKE, null, type, met, params);
           }
 
-          // public *returnType* *name*$super(*parameters*){
+          // private final *returnType* *name*$super(*parameters*){
           //   *[return]* super.*name*(*parameters*);
           // }
           if(superMethod != null){
             CodeBlock<?> code = classInfo.declareMethod(
-                Modifier.PUBLIC,
+                Modifier.PRIVATE | Modifier.FINAL,
                 methodName + CALLSUPER,
                 returnType,
                 Parameter.asParameter(method.getParameters())
@@ -555,7 +561,7 @@ public abstract class DynamicMaker{
       ILocal<Integer> index = code.local(INT_TYPE);
       ILocal<Integer> indexWrap = code.local(INTEGER_CLASS_TYPE);
       ILocal<Object> obj = code.local(OBJECT_TYPE);
-      ILocal<Map> caseMap = code.local(MAP_TYPE);
+      ILocal<HashMap> caseMap = code.local(HASH_MAP_TYPE);
       code.assign(null, methodIndex, caseMap);
       code.invoke(
           caseMap,

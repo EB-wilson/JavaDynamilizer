@@ -1,6 +1,4 @@
-import dynamilize.DynamicClass;
-import dynamilize.DynamicMaker;
-import dynamilize.ProxyMaker;
+import dynamilize.*;
 import dynamilize.classmaker.ASMGenerator;
 import dynamilize.classmaker.BaseClassLoader;
 import dynamilize.classmaker.ClassInfo;
@@ -9,17 +7,11 @@ import org.objectweb.asm.Opcodes;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 
-@SuppressWarnings("unchecked")
 public class DynamicTest{
   public static void main(String[] args){
     DynamicClass dyc = DynamicClass.get("Demo");                              //首先，传入类型进行行为描述
-
-    dyc.setFinalFunc("run", (s, a) -> {
-      s.superPoint().invokeFunc("run", a);
-      System.out.println(s + " value: " + a.get(0));
-      return null;
-    }, int.class, boolean.class);
 
     BaseClassLoader loader = new BaseClassLoader(DynamicMaker.class.getClassLoader());
     ASMGenerator generator = new ASMGenerator(loader, Opcodes.V1_8);
@@ -41,19 +33,50 @@ public class DynamicTest{
         return (Class<? extends T>) i.generate(generator);
       }
     };
+    //DynamicMaker maker = DynamicMaker.getDefault();
 
-    ProxyMaker proxyMaker = ProxyMaker.getDefault(maker, (s, m, a) -> {
-      System.out.println("invoke: " + m + ", params: " + a);
-      return m.invoke(s, a);
-    });
+    DynamicObject<Runner> r = maker.newInstance(Runner.class, dyc);
+    Runner rs = new Runner(), rr = r.self();
 
-    Runner list = proxyMaker.newProxyInstance(Runner.class).self();
-    list.run(89, 89, false);
+    Function<Runner, Long> fn = r.getFunc("run", long.class);
+
+    FunctionType sign = FunctionType.inst(long.class);
+    long sum = 0;
+    for(int i = 0; i < 1024; i++){
+      sum += (Long) ((DynamicMaker.SuperInvoker)rr).invokeSuper("run(J)", System.nanoTime());
+    }
+    long a = sum;
+    System.out.println(a);
+
+    System.out.println("=========================================================");
+
+    sum = 0;
+    for(int i = 0; i < 1024; i++){
+      sum += rs.run(System.nanoTime());
+    }
+    long b = sum;
+    System.out.println(b);
+
+    System.out.println(a - b);
   }
 
   public static class Runner{
-    public void run(long time, long i, boolean boo){
-      System.out.println(time + " default super " + boo);
+    public String a;
+
+    private static final HashMap<String, Integer> map = new HashMap<>();
+
+    static {
+      map.put("run1", 0);
+      map.put("run2", 1);
+    }
+
+    public long run(long time){
+      StringBuilder b = new StringBuilder();
+      for(int i = 0; i < 1; i++){
+        b.append(i);
+      }
+      a = b.toString();
+      return System.nanoTime() - time;
     }
   }
 }

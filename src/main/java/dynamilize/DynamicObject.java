@@ -59,6 +59,13 @@ public interface DynamicObject<Self>{
    * @return 指定函数的匿名表示*/
   <R> Function<Self, R> getFunc(String name, FunctionType type);
 
+  default <R> Function<Self, R> getFunc(String name, Class<?>... types){
+    FunctionType type = FunctionType.inst(types);
+    Function<Self, R> f = getFunc(name, type);
+    type.recycle();
+    return f;
+  }
+
   /**以lambda模式设置对象的成员函数，lambda模式下对对象的函数变更仅对此对象有效，变更即时生效,
    * 若需要使变更对所有实例都生效，则应当对此对象的动态类型引用{@link DynamicClass#visitClass(Class)}方法变更行为样版
    * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#set(String, Function, Class[])}方法，并将参数一一对应传入
@@ -84,12 +91,10 @@ public interface DynamicObject<Self>{
    * @return 函数返回值*/
   default <R> R invokeFunc(String name, Object... args){
     ArgumentList lis = ArgumentList.as(args);
-    try{
-      return invokeFunc(name, lis);
-    }finally{
-      lis.type().recycle();
-      lis.recycle();
-    }
+    R r = invokeFunc(name, lis);
+    lis.type().recycle();
+    lis.recycle();
+    return r;
   }
   
   /**指明形式参数列表执行对象的指定成员函数，如果参数中有从类型分配的对象或者null值，使用type明确指定形参类型可以有效提升执行效率
@@ -99,11 +104,9 @@ public interface DynamicObject<Self>{
    * @return 函数返回值*/
   default <R> R invokeFunc(FunctionType type, String name, Object... args){
     ArgumentList lis = ArgumentList.asWithType(type, args);
-    try{
-      return invokeFunc(name, lis);
-    }finally{
-      lis.recycle();
-    }
+    R r = invokeFunc(name, lis);
+    lis.recycle();
+    return r;
   }
 
   /**直接传入{@link ArgumentList}作为实参列表的函数调用，方法内完成拆箱，便于在匿名函数中对另一函数进行引用而无需拆箱
