@@ -583,6 +583,8 @@ public abstract class DynamicMaker{
       ILocal<Object[]> args = code.getRealParam(1);
       ILocal<Object> tmpObj = code.local(OBJECT_TYPE);
       ILocal<Integer> tmpInd = code.local(INT_TYPE);
+
+      HashMap<IClass<?>, ILocal<?>> locals = new HashMap<>();
       for(Map.Entry<Method, Integer> entry: callSuperCaseMap.entrySet()){
         Label l = code.label();
         code.markLabel(l);
@@ -597,7 +599,7 @@ public abstract class DynamicMaker{
         );
         ILocal<?>[] params = new ILocal[method.parameters().size()];
         for(int in = 0; in < params.length; in++){
-          params[in] = code.local(((Parameter<?>)method.parameters().get(in)).getType());
+          params[in] = locals.computeIfAbsent(((Parameter<?>)method.parameters().get(in)).getType(), code::local);
           code.loadConstant(tmpInd, in);
           code.arrayGet(args, tmpInd, tmpObj);
           code.cast(tmpObj, params[in]);
