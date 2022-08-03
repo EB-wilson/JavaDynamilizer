@@ -82,7 +82,7 @@ public class FunctionType{
     Class<?>[] types = new Class[objects.length];
 
     for(int i = 0; i < types.length; i++){
-      types[i] = objects[i].getClass();
+      types[i] = objects[i] == null? void.class: objects[i].getClass();
     }
 
     return types;
@@ -92,7 +92,7 @@ public class FunctionType{
     Class<?>[] types = new Class[objects.size()];
 
     for(int i = 0; i < types.length; i++){
-      types[i] = objects.get(i).getClass();
+      types[i] = objects.get(i) == null? void.class: objects.get(i).getClass();
     }
 
     return types;
