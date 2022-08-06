@@ -749,7 +749,7 @@ public abstract class DynamicMaker{
       ILocal<DataPool> pool = code.local(DATA_POOL_TYPE);
       code.assign(code.getThis(), dataPool, pool);
 
-      code.invoke(pool, SET_VAR, null, code.getParam(1), code.getParam(2));
+      code.invoke(pool, SET_VAR, null, code.getParam(1));
       code.returnVoid();
     }
 
