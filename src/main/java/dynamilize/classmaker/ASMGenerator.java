@@ -47,12 +47,200 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     map.put('F', D2F);
   }
 
+  BlockContext context;
+  int codeCount;
+
+  protected static class BlockContext{
+    int counter;
+
+    final HashSet<String> params = new HashSet<>();
+
+    final Map<Integer, String>[] refList;
+    final Map<Integer, String>[] assignList;
+
+    final HashSet<Integer> codeInStack = new HashSet<>();
+
+    final HashSet<String> shouldInStack = new HashSet<>();
+    
+    public BlockContext(int codeCount){
+      refList = new Map[codeCount];
+      assignList = new Map[codeCount];
+    }
+
+    public void initArgs(ILocal<?>... args){
+      for(ILocal<?> arg: args){
+        params.add(arg.name());
+      }
+    }
+
+    public void ref(int codeOff, String local){
+      if(refList[codeOff] == null) refList[codeOff] = new TreeMap<>();
+      refList[codeOff].put(counter, local);
+
+      counter++;
+    }
+
+    public void ref(int codeOff, String... locals){
+      if(locals.length == 0) return;
+
+      for(String local: locals){
+        ref(codeOff, local);
+      }
+    }
+
+    public void assign(int codeOff, String local){
+      if(assignList[codeOff] == null) assignList[codeOff] = new TreeMap<>();
+      assignList[codeOff].put(counter, local);
+
+      counter++;
+    }
+
+    public void assign(int codeOff, String... locals){
+      if(locals.length == 0) return;
+
+      for(String local: locals){
+        assign(codeOff, local);
+      }
+    }
+
+    public void init(){
+
+    }
+
+    public boolean inStackCode(int codeOff){
+      return codeInStack.contains(codeOff);
+    }
+
+    public boolean shouldInStack(String local){
+      return shouldInStack.contains(local);
+    }
+  }
+
+  protected final DefaultReadVisitor contextStatistic = new DefaultReadVisitor(){
+    int codeCount;
+    
+    @Override
+    public void visitCodeBlock(ICodeBlock<?> codeBlock){
+      context = new BlockContext(codeBlock.codes().size());
+      context.initArgs(codeBlock.getParamAll().toArray(new ILocal[0]));
+      codeCount = 0;
+
+      for(Element element: codeBlock.codes()){
+        element.accept(this);
+        codeCount++;
+      }
+    }
+
+    @Override
+    public void visitPutField(IPutField<?, ?> putField){
+      if(!Modifier.isStatic(putField.target().modifiers())) context.ref(codeCount, putField.inst().name());
+      context.ref(codeCount, putField.source().name());
+    }
+
+    @Override
+    public void visitGetField(IGetField<?, ?> getField){
+      if(!Modifier.isStatic(getField.source().modifiers())) context.ref(codeCount, getField.inst().name());
+      context.assign(codeCount, getField.target().name());
+    }
+
+    @Override
+    public void visitLocalSet(ILocalAssign<?, ?> localSet){
+      context.ref(codeCount, localSet.source().name());
+      context.assign(codeCount, localSet.target().name());
+    }
+
+    @Override
+    public void visitArrayGet(IArrayGet<?> arrayGet){
+      context.ref(codeCount, arrayGet.array().name(), arrayGet.index().name());
+      context.assign(codeCount, arrayGet.getTo().name());
+    }
+
+    @Override
+    public void visitArrayPut(IArrayPut<?> arrayPut){
+      context.ref(codeCount, arrayPut.array().name(), arrayPut.index().name(), arrayPut.value().name());
+    }
+
+    @Override
+    public void visitCast(ICast cast){
+      context.ref(codeCount, cast.source().name());
+      context.assign(codeCount, cast.target().name());
+    }
+
+    @Override
+    public void visitCompare(ICompare<?> compare){
+      context.ref(codeCount, compare.leftNumber().name(), compare.rightNumber().name());
+    }
+
+    @Override
+    public void visitCondition(ICondition condition){
+      context.ref(codeCount, condition.condition().name());
+    }
+
+    @Override
+    public void visitOperate(IOperate<?> operate){
+      context.ref(codeCount, operate.leftOpNumber().name(), operate.rightOpNumber().name());
+      context.assign(codeCount, operate.resultTo().name());
+    }
+
+    @Override
+    public void visitOddOperate(IOddOperate<?> operate){
+      context.ref(codeCount, operate.operateNumber().name());
+      context.assign(codeCount, operate.resultTo().name());
+    }
+
+    @Override
+    public void visitConstant(ILoadConstant<?> loadConstant){
+      context.assign(codeCount, loadConstant.constTo().name());
+    }
+
+    @Override
+    public void visitInstanceOf(IInstanceOf instanceOf){
+      context.ref(codeCount, instanceOf.target().name());
+      context.assign(codeCount, instanceOf.result().name());
+    }
+
+    @Override
+    public void visitInvoke(IInvoke<?> invoke){
+      List<ILocal<?>> args = new ArrayList<>();
+      if(!Modifier.isStatic(invoke.method().modifiers())) args.add(invoke.target());
+      args.addAll(invoke.args());
+
+      context.ref(codeCount, args.stream().map(ILocal::name).toArray(String[]::new));
+      if(invoke.returnTo() != null) context.assign(codeCount, invoke.returnTo().name());
+    }
+
+    @Override
+    public void visitNewInstance(INewInstance<?> newInstance){
+      context.ref(codeCount, newInstance.params().stream().map(ILocal::name).toArray(String[]::new));
+      context.assign(codeCount, newInstance.instanceTo().name());
+    }
+
+    @Override
+    public void visitNewArray(INewArray<?> newArray){
+      context.ref(codeCount, newArray.arrayLength().stream().map(ILocal::name).toArray(String[]::new));
+      context.assign(codeCount, newArray.resultTo().name());
+    }
+
+    @Override
+    public void visitReturn(IReturn<?> iReturn){
+      if(iReturn.returnValue() != null) context.ref(codeCount, iReturn.returnValue().name());
+    }
+
+    @Override
+    public void visitSwitch(ISwitch<?> zwitch){
+      context.ref(codeCount, zwitch.target().name());
+    }
+
+    @Override
+    public void visitThrow(IThrow<?> thr){
+      context.ref(codeCount, thr.thr().name());
+    }
+  };
+
   protected final ByteClassLoader classLoader;
   protected final int codeVersion;
 
   protected ClassWriter writer;
-
-  protected IClass<?> currGenerating;
 
   protected MethodVisitor methodVisitor;
   protected FieldVisitor fieldVisitor;
@@ -89,14 +277,13 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   @SuppressWarnings("unchecked")
-  protected  <T> Class<T> generateClass(ClassInfo<T> classInfo){
-    classLoader.declareClass(classInfo.name(), genByteCode(classInfo));
-    currGenerating = classInfo;
-
+  protected  <T> Class<T> generateClass(ClassInfo<T> classInfo) throws ClassNotFoundException{
     try{
       return (Class<T>) classLoader.loadClass(classInfo.name(), false);
     }catch(ClassNotFoundException e){
-      throw new IllegalHandleException(e);
+      classLoader.declareClass(classInfo.name(), genByteCode(classInfo));
+
+      return (Class<T>) classLoader.loadClass(classInfo.name(), false);
     }
   }
 
@@ -136,6 +323,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitLocal(ILocal<?> local){
+    if(context.inStackCode(codeCount)) return;
     super.visitLocal(local);
     localIndex.put(local.name(), localIndex.size());
     if(local.type() == LONG_TYPE || local.type() == DOUBLE_TYPE){
@@ -171,6 +359,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         }
       }
 
+      contextStatistic.visitMethod(method);
+      context.init();
       super.visitMethod(method);
 
       Label endLine = new Label();
@@ -230,7 +420,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       );
     }
 
-    super.visitCodeBlock(block);
+    currCodeBlock = block;
+    codeCount = 0;
+    for(Element element: block.codes()){
+      element.accept(this);
+      codeCount++;
+    }
 
     Element end = block.codes().isEmpty()? null: block.codes().get(block.codes().size() - 1);
     if(end != null && end.kind() == ElementKind.RETURN){
@@ -248,6 +443,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitField(IField<?> field){
+    super.visitField(field);
+
     fieldVisitor = writer.visitField(
         field.modifiers(),
         field.name(),
@@ -272,14 +469,18 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         INVOKEVIRTUAL;
     
     if(!Modifier.isStatic(invoke.method().modifiers())){
-      methodVisitor.visitVarInsn(ALOAD, localIndex.get(invoke.target().name()));
+      if(!context.inStackCode(codeCount)){
+        methodVisitor.visitVarInsn(ALOAD, localIndex.get(invoke.target().name()));
+      }
     }
 
     for(ILocal<?> arg: invoke.args()){
-      methodVisitor.visitVarInsn(
-          getLoadType(arg.type()),
-          localIndex.get(arg.name())
-      );
+      if(!context.inStackCode(codeCount)){
+        methodVisitor.visitVarInsn(
+            getLoadType(arg.type()),
+            localIndex.get(arg.name())
+        );
+      }
     }
 
     methodVisitor.visitMethodInsn(
@@ -300,6 +501,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else{
       castAssign(type, invoke.returnTo().type());
 
+      if(context.inStackCode(codeCount)) return;
+
       methodVisitor.visitVarInsn(
           getStoreType(invoke.returnTo().type()),
           localIndex.get(invoke.returnTo().name())
@@ -310,7 +513,9 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   @Override
   public void visitGetField(IGetField<?, ?> getField){
     if(!Modifier.isStatic(getField.source().modifiers())){
-      methodVisitor.visitVarInsn(ALOAD, localIndex.get(getField.inst().name()));
+      if(!context.inStackCode(codeCount)){
+        methodVisitor.visitVarInsn(ALOAD, localIndex.get(getField.inst().name()));
+      }
     }
 
     methodVisitor.visitFieldInsn(
@@ -322,22 +527,28 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
     castAssign(getField.source().type(), getField.target().type());
 
-    methodVisitor.visitVarInsn(
-        getStoreType(getField.source().type()),
-        localIndex.get(getField.target().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getStoreType(getField.source().type()),
+          localIndex.get(getField.target().name())
+      );
+    }
   }
 
   @Override
   public void visitPutField(IPutField<?, ?> putField){
     if(!Modifier.isStatic(putField.target().modifiers())){
-      methodVisitor.visitVarInsn(ALOAD, localIndex.get(putField.inst().name()));
+      if(!context.inStackCode(codeCount)){
+        methodVisitor.visitVarInsn(ALOAD, localIndex.get(putField.inst().name()));
+      }
     }
 
-    methodVisitor.visitVarInsn(
-        getLoadType(putField.source().type()),
-        localIndex.get(putField.source().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(putField.source().type()),
+          localIndex.get(putField.source().name())
+      );
+    }
 
     castAssign(putField.source().type(), putField.target().type());
 
@@ -351,13 +562,16 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitLocalSet(ILocalAssign<?, ?> localSet){
-    methodVisitor.visitVarInsn(
-        getLoadType(localSet.source().type()),
-        localIndex.get(localSet.source().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(localSet.source().type()),
+          localIndex.get(localSet.source().name())
+      );
+    }
 
     castAssign(localSet.source().type(), localSet.target().type());
 
+    if(context.inStackCode(codeCount)) return;
     methodVisitor.visitVarInsn(
         getStoreType(localSet.target().type()),
         localIndex.get(localSet.target().name())
@@ -366,15 +580,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitOperate(IOperate<?> operate){
-    methodVisitor.visitVarInsn(
-        getLoadType(operate.leftOpNumber().type()),
-        localIndex.get(operate.leftOpNumber().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(operate.leftOpNumber().type()),
+          localIndex.get(operate.leftOpNumber().name())
+      );
+    }
 
-    methodVisitor.visitVarInsn(
-        getLoadType(operate.rightOpNumber().type()),
-        localIndex.get(operate.rightOpNumber().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(operate.rightOpNumber().type()),
+          localIndex.get(operate.rightOpNumber().name())
+      );
+    }
 
     if(operate.leftOpNumber().type() == STRING_TYPE || operate.rightOpNumber().type() == STRING_TYPE){
       if(operate.opCode() != IOperate.OPCode.ADD)
@@ -390,28 +608,33 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
               false),
           "\u0001\u0001"
       );
+    }
+    else{
+      IClass<?> type = operate.leftOpNumber().type();
+      int ilfd = getILFD(type);
 
-      return;
+      int opc = switch(operate.opCode()){
+        case ADD -> selectILFD(ilfd, IADD, LADD, FADD, DADD);
+        case SUBSTRUCTION -> selectILFD(ilfd, ISUB, LSUB, FSUB, DSUB);
+        case MULTI -> selectILFD(ilfd, IMUL, LMUL, FMUL, DMUL);
+        case DIVISION -> selectILFD(ilfd, IDIV, LDIV, FDIV, DDIV);
+        case REMAINING -> selectILFD(ilfd, IREM, LREM, FREM, DREM);
+        case LEFTMOVE -> selectIL(ilfd, ISHL, LSHL);
+        case RIGHTMOVE -> selectIL(ilfd, ISHR, LSHR);
+        case UNSIGNMOVE -> selectIL(ilfd, IUSHR, LUSHR);
+        case BITSAME -> selectIL(ilfd, IAND, LAND);
+        case BITOR -> selectIL(ilfd, IOR, LOR);
+        case BITXOR -> selectIL(ilfd, IXOR, LXOR);
+      };
+
+      methodVisitor.visitInsn(opc);
     }
 
-    IClass<?> type = operate.leftOpNumber().type();
-    int ilfd = getILFD(type);
-
-    int opc = switch(operate.opCode()){
-      case ADD -> selectILFD(ilfd, IADD, LADD, FADD, DADD);
-      case SUBSTRUCTION -> selectILFD(ilfd, ISUB, LSUB, FSUB, DSUB);
-      case MULTI -> selectILFD(ilfd, IMUL, LMUL, FMUL, DMUL);
-      case DIVISION -> selectILFD(ilfd, IDIV, LDIV, FDIV, DDIV);
-      case REMAINING -> selectILFD(ilfd, IREM, LREM, FREM, DREM);
-      case LEFTMOVE -> selectIL(ilfd, ISHL, LSHL);
-      case RIGHTMOVE -> selectIL(ilfd, ISHR, LSHR);
-      case UNSIGNMOVE -> selectIL(ilfd, IUSHR, LUSHR);
-      case BITSAME -> selectIL(ilfd, IAND, LAND);
-      case BITOR -> selectIL(ilfd, IOR, LOR);
-      case BITXOR -> selectIL(ilfd, IXOR, LXOR);
-    };
-
-    methodVisitor.visitInsn(opc);
+    if(context.inStackCode(codeCount)) return;
+    methodVisitor.visitVarInsn(
+        getStoreType(operate.resultTo().type()),
+        localIndex.get(operate.resultTo().name())
+    );
   }
 
   private int selectIL(int ilfd, int ishl, int lshl){
@@ -443,13 +666,16 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitCast(ICast cast){
-    methodVisitor.visitVarInsn(
-        getLoadType(cast.source().type()),
-        localIndex.get(cast.source().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(cast.source().type()),
+          localIndex.get(cast.source().name())
+      );
+    }
 
     castAssign(cast.source().type(), cast.target().type());
 
+    if(context.inStackCode(codeCount)) return;
     methodVisitor.visitVarInsn(
         getStoreType(cast.target().type()),
         localIndex.get(cast.target().name())
@@ -477,15 +703,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       case MOREOREQUAL -> IF_ICMPGE;
     };
 
-    methodVisitor.visitVarInsn(
-        getLoadType(compare.leftNumber().type()),
-        localIndex.get(compare.leftNumber().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(compare.leftNumber().type()),
+          localIndex.get(compare.leftNumber().name())
+      );
+    }
 
-    methodVisitor.visitVarInsn(
-        getLoadType(compare.rightNumber().type()),
-        localIndex.get(compare.rightNumber().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(compare.rightNumber().type()),
+          localIndex.get(compare.rightNumber().name())
+      );
+    }
 
     methodVisitor.visitJumpInsn(opc, labelMap.get(compare.ifJump()));
   }
@@ -501,20 +731,24 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       case MOREOREQUAL -> IFGE;
     };
 
-    methodVisitor.visitVarInsn(
-        getLoadType(condition.condition().type()),
-        localIndex.get(condition.condition().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(condition.condition().type()),
+          localIndex.get(condition.condition().name())
+      );
+    }
 
     methodVisitor.visitJumpInsn(opc, labelMap.get(condition.ifJump()));
   }
 
   @Override
   public void visitArrayGet(IArrayGet<?> arrayGet){
-    methodVisitor.visitVarInsn(
-        ALOAD,
-        localIndex.get(arrayGet.array().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          ALOAD,
+          localIndex.get(arrayGet.array().name())
+      );
+    }
 
     IClass<?> componentType = arrayGet.array().type().componentType();
 
@@ -529,15 +763,18 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else if(componentType == ClassInfo.CHAR_TYPE){loadType = CALOAD;}
     else {loadType = AALOAD;}
 
-    methodVisitor.visitVarInsn(
-        ILOAD,
-        localIndex.get(arrayGet.index().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          ILOAD,
+          localIndex.get(arrayGet.index().name())
+      );
+    }
 
     methodVisitor.visitInsn(loadType);
 
     castAssign(arrayGet.array().type().componentType(), arrayGet.getTo().type());
 
+    if(context.inStackCode(codeCount)) return;
     methodVisitor.visitVarInsn(
         getStoreType(componentType),
         localIndex.get(arrayGet.getTo().name())
@@ -546,15 +783,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitArrayPut(IArrayPut<?> arrayPut){
-    methodVisitor.visitVarInsn(
-        ALOAD,
-        localIndex.get(arrayPut.array().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          ALOAD,
+          localIndex.get(arrayPut.array().name())
+      );
+    }
 
-    methodVisitor.visitVarInsn(
-        ILOAD,
-        localIndex.get(arrayPut.index().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          ILOAD,
+          localIndex.get(arrayPut.index().name())
+      );
+    }
 
     IClass<?> componentType = arrayPut.array().type().componentType();
 
@@ -569,10 +810,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else if(componentType == ClassInfo.CHAR_TYPE){storeType = CASTORE;}
     else {storeType = AASTORE;}
 
-    methodVisitor.visitVarInsn(
-        getLoadType(arrayPut.value().type()),
-        localIndex.get(arrayPut.value().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(arrayPut.value().type()),
+          localIndex.get(arrayPut.value().name())
+      );
+    }
 
     castAssign(arrayPut.value().type(), arrayPut.array().type().componentType());
 
@@ -581,10 +824,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitSwitch(ISwitch<?> zwitch){
-    methodVisitor.visitVarInsn(
-        getLoadType(zwitch.target().type()),
-        localIndex.get(zwitch.target().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(zwitch.target().type()),
+          localIndex.get(zwitch.target().name())
+      );
+    }
 
     if(zwitch.isTable()){
       int max = Integer.MIN_VALUE, min = Integer.MAX_VALUE;
@@ -643,10 +888,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitThrow(IThrow<?> thr){
-    methodVisitor.visitVarInsn(
-        getLoadType(thr.thr().type()),
-        localIndex.get(thr.thr().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(thr.thr().type()),
+          localIndex.get(thr.thr().name())
+      );
+    }
 
     methodVisitor.visitInsn(ATHROW);
   }
@@ -666,19 +913,15 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         case 'A' -> ARETURN;
         default -> -1;
       };
-      ;
 
-      methodVisitor.visitVarInsn(
-          getLoadType(retType),
-          localIndex.get(iReturn.returnValue().name())
-      );
-
-      if(opc == ARETURN){
-        methodVisitor.visitTypeInsn(
-            CHECKCAST,
-            retType.isArray()? retType.realName(): retType.internalName()
+      if(!context.inStackCode(codeCount)){
+        methodVisitor.visitVarInsn(
+            getLoadType(retType),
+            localIndex.get(iReturn.returnValue().name())
         );
       }
+
+      castAssign(iReturn.returnValue().type(), currMethod.returnType());
 
       methodVisitor.visitInsn(opc);
     }
@@ -686,16 +929,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitInstanceOf(IInstanceOf instanceOf){
-    methodVisitor.visitVarInsn(
-        getLoadType(instanceOf.target().type()),
-        localIndex.get(instanceOf.target().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(instanceOf.target().type()),
+          localIndex.get(instanceOf.target().name())
+      );
+    }
 
     methodVisitor.visitTypeInsn(
         INSTANCEOF,
         instanceOf.type().internalName()
     );
 
+    if(context.inStackCode(codeCount)) return;
     methodVisitor.visitVarInsn(
         getStoreType(instanceOf.result().type()),
         localIndex.get(instanceOf.result().name())
@@ -708,10 +954,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     methodVisitor.visitInsn(DUP);
 
     for(ILocal<?> local: newInstance.params()){
-      methodVisitor.visitVarInsn(
-          getLoadType(local.type()),
-          localIndex.get(local.name())
-      );
+      if(!context.inStackCode(codeCount)){
+        methodVisitor.visitVarInsn(
+            getLoadType(local.type()),
+            localIndex.get(local.name())
+        );
+      }
     }
 
     methodVisitor.visitMethodInsn(
@@ -722,6 +970,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         false
     );
 
+    if(context.inStackCode(codeCount)) return;
     methodVisitor.visitVarInsn(
         getStoreType(newInstance.type()),
         localIndex.get(newInstance.instanceTo().name())
@@ -730,10 +979,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitOddOperate(IOddOperate<?> operate){
-    methodVisitor.visitVarInsn(
-        getLoadType(operate.operateNumber().type()),
-        localIndex.get(operate.operateNumber().name())
-    );
+    if(!context.inStackCode(codeCount)){
+      methodVisitor.visitVarInsn(
+          getLoadType(operate.operateNumber().type()),
+          localIndex.get(operate.operateNumber().name())
+      );
+    }
 
     IClass<?> type = operate.operateNumber().type();
     int ilfd = getILFD(type);
@@ -754,12 +1005,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else{
       methodVisitor.visitInsn(opc);
     }
+
+    if(context.inStackCode(codeCount)) return;
+    methodVisitor.visitVarInsn(
+        ISTORE,
+        localIndex.get(operate.resultTo().name())
+    );
   }
 
   @Override
   public void visitConstant(ILoadConstant<?> loadConstant){
     visitConstant(loadConstant.constant());
 
+    if(context.inStackCode(codeCount)) return;
     methodVisitor.visitVarInsn(
         getStoreType(loadConstant.constTo().type()),
         localIndex.get(loadConstant.constTo().name())
@@ -771,10 +1029,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     int dimension = newArray.arrayLength().size();
     if(dimension == 1){
       ILocal<?> len = newArray.arrayLength().get(0);
-      methodVisitor.visitVarInsn(
-          getLoadType(len.type()),
-          localIndex.get(len.name())
-      );
+      if(!context.inStackCode(codeCount)){
+        methodVisitor.visitVarInsn(
+            getLoadType(len.type()),
+            localIndex.get(len.name())
+        );
+      }
 
       methodVisitor.visitTypeInsn(
           newArray.arrayEleType().isPrimitive()? NEWARRAY: ANEWARRAY,
@@ -787,16 +1047,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         arrType = arrType.asArray();
 
         ILocal<?> len = newArray.arrayLength().get(i);
-        methodVisitor.visitVarInsn(
-            getLoadType(len.type()),
-            localIndex.get(len.name())
-        );
+        if(!context.inStackCode(codeCount)){
+          methodVisitor.visitVarInsn(
+              getLoadType(len.type()),
+              localIndex.get(len.name())
+          );
+        }
       }
 
       methodVisitor.visitMultiANewArrayInsn(arrType.realName(), dimension);
     }
     else throw new IllegalHandleException("illegal array dimension " + dimension);
 
+    if(context.inStackCode(codeCount)) return;
     methodVisitor.visitVarInsn(
         ASTORE,
         localIndex.get(newArray.resultTo().name())

@@ -11,8 +11,6 @@ public class JavaVariable implements IVariable{
   private final MethodHandle setter;
   private final MethodHandle getter;
 
-  private DynamicObject<?> owner;
-
   public JavaVariable(Field field){
     this.field = field;
     MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -26,11 +24,6 @@ public class JavaVariable implements IVariable{
   }
 
   @Override
-  public void poolAdded(DataPool<?> pool){
-    owner = (DynamicObject<?>) pool.getOwner();
-  }
-
-  @Override
   public String name(){
     return field.getName();
   }
@@ -41,9 +34,9 @@ public class JavaVariable implements IVariable{
   }
 
   @Override
-  public <T> T get(){
+  public <T> T get(DynamicObject<?> obj){
     try{
-      return (T) getter.invoke(owner);
+      return (T) getter.invoke(obj);
     }catch(ClassCastException e){
       throw e;
     }catch(Throwable e){
@@ -52,12 +45,12 @@ public class JavaVariable implements IVariable{
   }
 
   @Override
-  public void set(Object value){
+  public void set(DynamicObject<?> obj, Object value){
     if(isConst())
       throw new IllegalHandleException("can not modifier a const variable");
 
     try{
-      setter.invoke(owner, value);
+      setter.invoke(obj, value);
     }catch(Throwable e){
       throw new IllegalHandleException(e);
     }

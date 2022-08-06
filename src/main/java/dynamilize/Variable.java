@@ -4,17 +4,9 @@ public class Variable implements IVariable{
   private final String name;
   private final boolean isConst;
 
-  private Object value;
-
-  public Variable(String name){
+  public Variable(String name, boolean isConst){
     this.name = name;
-    this.isConst = false;
-  }
-
-  public Variable(String name, Object value){
-    this.name = name;
-    this.value = value;
-    this.isConst = true;
+    this.isConst = isConst;
   }
 
   @Override
@@ -27,17 +19,13 @@ public class Variable implements IVariable{
     return isConst;
   }
 
-  @SuppressWarnings("unchecked")
   @Override
-  public <T> T get(){
-    return (T) value;
+  public <T> T get(DynamicObject<?> obj){
+    return obj.varValueGet(name);
   }
 
   @Override
-  public void set(Object value){
-    if(isConst)
-      throw new IllegalHandleException("cannot modifier a const variable");
-
-    this.value = value;
+  public void set(DynamicObject<?> obj, Object value){
+    obj.varValueSet(name, value);
   }
 }

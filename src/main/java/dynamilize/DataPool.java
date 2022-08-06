@@ -1,53 +1,56 @@
 package dynamilize;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 /**用于存储和处置动态对象数据的信息容器，不应从外部访问，每一个动态对象都会绑定一个数据池存放对象的变量/函数等信息。
  * <p>对于一个{@linkplain DynamicClass 动态类}的实例，实例的数据池一定会有一个父池，这个池以动态类的直接超类描述的信息进行初始化。
  * <p>访问池信息无论如何都是以最近原则，即若本池内没有找到数据，则以距离实例的池最近的具有此变量/函数的父池的数据为准
- * <p>关于变量与函数的写入策略略有不同，请参阅{@link DataPool#set(String, Object)}和{@link DataPool#set(String, Function, Class[])}
  *
  * @author EBwilson*/
 @SuppressWarnings({"unchecked"})
-public class DataPool<Owner>{
-  private final DataPool<Owner> superPool;
-  
-  private DynamicObject<Owner> owner;
+public class DataPool{
+  private static final List<MethodEntry> TMP_LIS = new ArrayList<>();
+  public static final MethodEntry[] EMP_METS = new MethodEntry[0];
 
-  private final Map<String, Function<Owner, ?>> signatureMap = new TreeMap<>();
+  private static final List<IVariable> TMP_VAR = new ArrayList<>();
+  public static final IVariable[] EMP_VARS = new IVariable[0];
 
-  private final Map<String, Map<FunctionType, Function<Owner, ?>>> funcPool = new HashMap<>();
+  private final DataPool superPool;
+
+  private final Map<String, Map<FunctionType, MethodEntry>> funcPool = new HashMap<>();
   private final Map<String, IVariable> varPool = new HashMap<>();
+  private final Map<String, Object> varValue = new HashMap<>();
+  private DynamicObject<?> owner;
 
   /**创建一个池对象并绑定到父池，父池可为null，这种情况下此池应当为被委托类型的方法/字段引用。
    * <p><strong>你不应该在外部使用时调用此类型</strong>
    *
    * @param superPool 此池的父池*/
-  public DataPool(DataPool<Owner> superPool){
+  public DataPool(DataPool superPool){
     this.superPool = superPool;
   }
 
-  /**绑定到一个{@linkplain DynamicObject 动态对象}，在动态对象创建后立即调用，通常，这应当生成为动态委托类的构造函数语句
+  /**初始化并绑定到一个{@linkplain DynamicObject 动态对象}，在动态对象创建后立即调用，通常，这应当在动态委托类的构造函数中生成此方法的调用语句
    *
    * @param owner 此池的所有者*/
-  public void setOwner(DynamicObject<Owner> owner){
+  public void init(DynamicObject<?> owner){
     this.owner = owner;
-    if(superPool != null) superPool.setOwner(owner);
   }
 
   /**获得此池绑定到的{@linkplain DynamicObject 动态对象}
    *
    * @return 池的所有者*/
-  public DynamicObject<Owner> getOwner(){
+  public DynamicObject<?> getOwner(){
     return owner;
   }
 
   /**获取父池，父池是不可变的，这意味着你不可以直接更改父池的内容，它是只读模式
    *
    * @return 父池的只读对象*/
-  public DataPool<? super Owner>.ReadOnlyPool getSuper(){
+  public DataPool.ReadOnlyPool getSuper(){
     return superPool.getReader();
   }
 
@@ -65,40 +68,14 @@ public class DataPool<Owner>{
    * @param name 函数名称
    * @param argsType 函数的参数类型列表
    * @param function 描述此函数行为的匿名函数*/
-  public void set(String name, Function<Owner, ?> function, Class<?>... argsType){
-    funcPool.computeIfAbsent(name, n -> new HashMap<>()).put(FunctionType.inst(argsType), function);
+  public void set(String name, Function<?, ?> function, Class<?>... argsType){
+    FunctionType type = FunctionType.inst(argsType);
+    funcPool.computeIfAbsent(name, n -> new HashMap<>())
+        .put(type, new FunctionEntry<>(name, true, function, type));
   }
 
-  /**设置池的变量，这将搜寻父池中已存在的目标变量，若在类层次结构中找到了此名称的变量，则设置其值，否则会在本池设置新的变量
-   *
-   * @param name 变量名称
-   * @param value 变量的值*/
-  public void set(String name, Object value){
-    IVariable var = getVariable(name);
-    if(var == null){
-      var = varPool.computeIfAbsent(name, Variable::new);
-      var.poolAdded(this);
-    }
-    var.set(value);
-  }
-
-  /**在本池设置常量，若在类层次结构中存在同名变量则无法设置常量
-   *
-   * @param name 常量名称
-   * @param value 常量值*/
-  public void setConst(String name, Object value){
-    if(getVariable(name) != null || varPool.containsKey(name))
-      throw new IllegalHandleException("cannot set existed variable to const");
-
-    varPool.put(name, new Variable(name, value));
-  }
-
-  /**向池中添加一个变量对象，一般来说仅在标记java字段作为变量时会用到
-   *
-   * @param var 加入池的变量*/
-  public void add(IVariable var){
-    varPool.put(var.name(), var);
-    var.poolAdded(this);
+  public void set(MethodEntry methodEntry){
+    funcPool.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>()).put(methodEntry.getType(), methodEntry);
   }
 
   /**从类层次结构中获取变量的对象
@@ -107,6 +84,13 @@ public class DataPool<Owner>{
    * @return 变量对象*/
   protected IVariable getVariable(String name){
     return varPool.getOrDefault(name, superPool == null? null: superPool.getVariable(name));
+  }
+
+  /**向池中添加一个变量对象，一般来说仅在标记java字段作为变量时会用到
+   *
+   * @param var 加入池的变量*/
+  public void setVariable(IVariable var){
+    varPool.putIfAbsent(var.name(), var);
   }
 
   /**获取变量的值，如果变量未定义则会抛出异常
@@ -119,7 +103,7 @@ public class DataPool<Owner>{
     if(var == null)
       throw new IllegalHandleException("variable " + name + " was undefined");
 
-    return var.get();
+    return var.get(owner);
   }
 
   /**将类层次结构中定义的函数输出为匿名函数，会优先查找类型签名相同的函数，若未查找到相同的才会转入类型签名匹配的函数，
@@ -128,33 +112,27 @@ public class DataPool<Owner>{
    *
    * @param name 函数的名称
    * @param type 函数的参数类型
-   * @return 选中函数的匿名函数
-   * @throws NoSuchMethodError 若指定的函数未被定义*/
-  @SuppressWarnings("rawtypes")
-  public <R> Function<Owner, R> select(String name, FunctionType type){
-    Map<FunctionType, Function<Owner, R>> map = (Map) funcPool.get(name);
-    Function<Owner, R> res;
+   * @return 选中函数的匿名函数*/
+  public <S, R> Function<S, R> select(String name, FunctionType type){
+    Map<FunctionType, MethodEntry> map = funcPool.get(name);
+    MethodEntry res;
 
     if(map != null){
       res = map.get(type);
-      if(res != null) return res;
+      if(res != null) return res.getFunction();
     }
 
     if(superPool != null) return superPool.select(name, type);
 
-    res = selectMatch(name, type);
-    if(res != null) return res;
-
-    throw new NoSuchMethodError("no such method with name " + name);
+    return selectMatch(name, type);
   }
 
-  @SuppressWarnings("rawtypes")
-  private <R> Function<Owner, R> selectMatch(String name, FunctionType type){
-    Map<FunctionType, Function<Owner, R>> map = (Map) funcPool.get(name);
+  private <S, R> Function<S, R> selectMatch(String name, FunctionType type){
+    Map<FunctionType, MethodEntry> map = funcPool.get(name);
     if(map != null){
-      for(Map.Entry<FunctionType, Function<Owner, R>> entry: map.entrySet()){
+      for(Map.Entry<FunctionType, MethodEntry> entry: map.entrySet()){
         if(entry.getKey().match(type.getTypes())){
-          return entry.getValue();
+          return entry.getValue().getFunction();
         }
       }
     }
@@ -162,6 +140,21 @@ public class DataPool<Owner>{
     if(superPool != null) return superPool.selectMatch(name, type);
 
     return null;
+  }
+
+  public IVariable[] getVariables(){
+    TMP_VAR.clear();
+    TMP_VAR.addAll(varPool.values());
+    return TMP_VAR.toArray(EMP_VARS);
+  }
+
+  public MethodEntry[] getFunctions(){
+    TMP_LIS.clear();
+    for(Map<FunctionType, MethodEntry> entry: funcPool.values()){
+      TMP_LIS.addAll(entry.values());
+    }
+
+    return TMP_LIS.toArray(EMP_METS);
   }
 
   /**获得池的只读对象*/
@@ -178,7 +171,7 @@ public class DataPool<Owner>{
     }
 
     /**@see DynamicObject#getFunc(String, FunctionType)*/
-    public <R> Function<Owner, R> getFunc(String name, FunctionType type){
+    public <S, R> Function<S, R> getFunc(String name, FunctionType type){
       return DataPool.this.select(name, type);
     }
 
@@ -202,7 +195,7 @@ public class DataPool<Owner>{
     public <R> R invokeFunc(String name, ArgumentList args){
       FunctionType type = args.type();
 
-      return (R) getFunc(name, type).invoke(owner, args);
+      return (R) getFunc(name, type).invoke((DynamicObject<Object>) owner, args);
     }
   }
 }

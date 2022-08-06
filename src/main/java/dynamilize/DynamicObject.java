@@ -24,21 +24,49 @@ public interface DynamicObject<Self>{
    * <p>生成器实施应当实现此方法使之引用数据池的{@link DataPool#getSuper()}方法并返回值
    *
    * @return 超类池读取器*/
-  DataPool<Self>.ReadOnlyPool superPoint();
+  DataPool.ReadOnlyPool superPoint();
 
-  /**获得对象的成员变量值
-   * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#get(String)}方法并返回值
+  /**获得对象的成员变量
+   * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#getVariable(String)}方法并返回值
    *
    * @param name 变量名称
    * @return 变量的值*/
-  <T> T getVar(String name);
+  IVariable getVariable(String name);
 
   /**设置对象的成员变量
-   * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#set(String, Object)}方法，自身的参数分别传入
+   * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#setVariable(IVariable)}方法，自身的参数分别传入
    *
-   * @param name 变量名称
-   * @param value 变量值*/
-  <T> void setVar(String name, T value);
+   * @param variable 将设置的变量*/
+  void setVariable(IVariable variable);
+
+  /**获取对象的某一成员变量的值，若变量尚未定义则会抛出异常
+   *
+   * @param name 变量名
+   * @return 变量值*/
+  default <T> T getVar(String name){
+    IVariable var = getVariable(name);
+    if(var == null)
+      throw new IllegalHandleException("variable " + name + " was not defined");
+
+    return var.get(this);
+  }
+
+  /**为对象的某一变量设置属性值，若在层次结构中未能找到变量则会定义变量
+   *
+   * @param name 变量名
+   * @param value 属性值*/
+  default <T> void setVar(String name, T value){
+    IVariable var = getVariable(name);
+    if(var == null){
+      var = new Variable(name, false);
+      setVariable(var);
+    }
+    var.set(this, value);
+  }
+
+  <T> T varValueGet(String name);
+
+  <T> void varValueSet(String name, T value);
 
   /**使用给出的运算器对指定名称的变量进行处理，并用其计算结果设置变量值
    *

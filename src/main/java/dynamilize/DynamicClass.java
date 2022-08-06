@@ -5,9 +5,7 @@ import dynamilize.annotation.Exclude;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**保存动态对象行为信息的动态类型，描述了对象的共有行为和变量信息。
@@ -59,16 +57,13 @@ public class DynamicClass{
   /**保存了所有动态类的实例，通常情况下动态类型只有在主动删除时才会退出池，对于废弃的类，请切记使用{@link DynamicClass#delete()}删除，否则会造成内存泄漏*/
   private static final HashMap<String, DynamicClass> classPool = new HashMap<>();
 
-  private static final List<MethodEntry> TMP_LIS = new ArrayList<>();
-  public static final MethodEntry[] EMP_METS = new MethodEntry[0];
-
   /**类型的唯一限定名称*/
   private final String name;
 
   /**此动态类的直接超类*/
   private final DynamicClass superDyClass;
 
-  private final Map<String, Map<FunctionType, MethodEntry>> functions = new HashMap<>();
+  private final DataPool data;
   private final Map<String, Initializer<?>> varInit = new HashMap<>();
 
   /**废弃标记，在类型已废弃后，不可再实例化此类型*/
@@ -103,6 +98,7 @@ public class DynamicClass{
   private DynamicClass(String name, DynamicClass superDyClass){
     this.name = name;
     this.superDyClass = superDyClass;
+    this.data = new DataPool(superDyClass == null? null: superDyClass.data);
   }
 
   /**将此类型对象从池中移除并废弃，任何一个动态类不再被使用后，都应当正确的删除。
@@ -132,39 +128,33 @@ public class DynamicClass{
     return superDyClass;
   }
 
-  public MethodEntry[] getFunctions(){
-    TMP_LIS.clear();
-    for(Map<FunctionType, MethodEntry> map: functions.values()){
-      TMP_LIS.addAll(map.values());
-    }
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public DataPool genPool(DataPool basePool){
+    return new DataPool(data){
+      @Override
+      public Function select(String name, FunctionType type){
+        Function res1 = super.select(name, type);
+        if(res1 != null) return res1;
 
-    return TMP_LIS.toArray(EMP_METS);
+        return basePool.select(name, type);
+      }
+
+      @Override
+      protected IVariable getVariable(String name){
+        IVariable var = super.getVariable(name);
+        if(var != null) return var;
+
+        return basePool.getVariable(name);
+      }
+    };
   }
 
-  /**分配实例数据池信息，应避免从外部调用此方法
-   *
-   * @hidden */
-  <T> void initInstance(DataPool<T> pool){
-    checkFinalized();
+  public MethodEntry[] getFunctions(){
+    return data.getFunctions();
+  }
 
-    for(Map<FunctionType, MethodEntry> map: functions.values()){
-      for(MethodEntry entry: map.values()){
-        FunctionType type = entry.getType();
-        pool.set(
-            entry.getName(),
-            entry.modifiable()? (self, args) -> map.get(type).<T, Object>getFunction().invoke(self, args): entry.getFunction(),
-            entry.getType().getTypes());
-      }
-    }
-
-    for(Map.Entry<String, Initializer<?>> entry: varInit.entrySet()){
-      if(entry.getValue().isConst()){
-        pool.setConst(entry.getKey(), entry.getValue().getInit());
-      }
-      else{
-        pool.set(entry.getKey(), entry.getValue().getInit());
-      }
-    }
+  public IVariable[] getVariables(){
+    return data.getVariables();
   }
 
   /**访问一个类作为行为样版，将类中声明的字段/方法用作描述动态类行为，类中声明的<strong>静态成员</strong>将产生如下效果:
@@ -192,14 +182,7 @@ public class DynamicClass{
 
       if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers())) continue;
 
-      MethodEntry methodEntry = new JavaMethodEntry(method);
-
-      Map<FunctionType, MethodEntry> map = functions.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>());
-
-      MethodEntry existed = map.get(methodEntry.getType());
-      if(existed != null && !existed.modifiable()) continue;
-
-      map.put(methodEntry.getType(), methodEntry);
+      data.set(new JavaMethodEntry(method));
     }
 
     for(Field field: template.getDeclaredFields()){
@@ -219,15 +202,7 @@ public class DynamicClass{
     if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers()))
       throw new IllegalHandleException("method template must be public and static");
 
-    MethodEntry methodEntry = new JavaMethodEntry(method);
-
-    Map<FunctionType, MethodEntry> map = functions.computeIfAbsent(methodEntry.getName(), e -> new HashMap<>());
-
-    MethodEntry existed = map.get(methodEntry.getType());
-    if(existed != null && !existed.modifiable())
-      throw new IllegalHandleException("cannot modify a final method existed");
-
-    map.put(methodEntry.getType(), methodEntry);
+    data.set(new JavaMethodEntry(method));
   }
 
   /**访问一个字段样版，不同于{@link DynamicClass#visitClass(Class)}，此方法只访问一个单独的字段并创建其行为样版。
@@ -247,38 +222,12 @@ public class DynamicClass{
    * @param func 描述函数行为的匿名函数
    * @param argTypes 函数的形式参数类型*/
   public <S, R> void setFunction(String name, Function<S, R> func, Class<?>... argTypes){
-    FunctionType type = FunctionType.inst(argTypes);
-    functions.computeIfAbsent(name, n -> new HashMap<>())
-        .put(type, new FunctionEntry<>(name, true, func, type));
+    data.set(name, (a, s) -> func, argTypes);
   }
 
   /**同{@link DynamicClass#setFunction(String, Function, Class[])}，只是匿名函数无返回值*/
   public <S> void setFunction(String name, Function.NonRetFunction<S> func, Class<?>... argTypes){
     this.<S, Object>setFunction(name, (s, a) -> {
-      func.invoke(s, a);
-      return null;
-    }, argTypes);
-  }
-
-  /**以lambda模式设置函数，与{@link DynamicClass#setFunction(String, Function, Class[])}相同，但设置的函数不再可变
-   *
-   * @param name 函数名称
-   * @param func 描述函数行为的匿名函数
-   * @param argTypes 函数的形式参数类型*/
-  public <S, R> void setFinalFunc(String name, Function<S, R> func, Class<?>... argTypes){
-    Map<FunctionType, MethodEntry> map = functions.computeIfAbsent(name, n -> new HashMap<>());
-    FunctionType type = FunctionType.inst(argTypes);
-
-    MethodEntry existed = map.get(type);
-    if(existed != null && !existed.modifiable())
-      throw new IllegalHandleException("cannot modify a final method existed");
-
-    map.put(type, new FunctionEntry<>(name, false, func, type));
-  }
-
-  /**同{@link DynamicClass#setFinalFunc(String, Function, Class[])}，只是匿名函数无返回值*/
-  public <S> void setFinalFunc(String name, Function.NonRetFunction<S> func, Class<?>... argTypes){
-    this.<S, Object>setFinalFunc(name, (s, a) -> {
       func.invoke(s, a);
       return null;
     }, argTypes);

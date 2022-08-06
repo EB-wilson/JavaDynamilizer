@@ -334,7 +334,11 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
   public Class<T> generate(AbstractClassGenerator generator){
     checkGen();
 
-    return clazz = generator.generateClass(this);
+    try{
+      return clazz = generator.generateClass(this);
+    }catch(ClassNotFoundException e){
+      throw new IllegalHandleException(e);
+    }
   }
 
   public void initAnnotations(){

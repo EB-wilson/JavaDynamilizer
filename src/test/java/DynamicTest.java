@@ -36,28 +36,18 @@ public class DynamicTest{
     //DynamicMaker maker = DynamicMaker.getDefault();
 
     DynamicObject<Runner> r = maker.newInstance(Runner.class, dyc);
-    Runner rs = new Runner(), rr = r.self();
+    Runner rr = r.self();
 
-    Function<Runner, Long> fn = r.getFunc("run", long.class);
-
-    FunctionType sign = FunctionType.inst(long.class);
     long sum = 0;
     for(int i = 0; i < 1024; i++){
       sum += (Long) ((DynamicMaker.SuperInvoker)rr).invokeSuper("run(J)", System.nanoTime());
     }
+    r.setVar("a", String.valueOf(sum));
     long a = sum;
     System.out.println(a);
+    System.out.println(r.<String>getVar("a"));
 
-    System.out.println("=========================================================");
-
-    sum = 0;
-    for(int i = 0; i < 1024; i++){
-      sum += rs.run(System.nanoTime());
-    }
-    long b = sum;
-    System.out.println(b);
-
-    System.out.println(a - b);
+    rr.p();
   }
 
   public static class Runner{
@@ -75,8 +65,11 @@ public class DynamicTest{
       for(int i = 0; i < 1; i++){
         b.append(i);
       }
-      a = b.toString();
       return System.nanoTime() - time;
+    }
+
+    public void p(){
+      System.out.println(a);
     }
   }
 }
