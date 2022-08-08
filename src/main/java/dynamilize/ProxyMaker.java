@@ -82,7 +82,7 @@ public abstract class ProxyMaker{
     DynamicObject<T> inst = maker.newInstance(base, interfaces, dyClass, args);
 
     if(dynamicClass != null){
-      for(MethodEntry function: dynamicClass.getFunctions()){
+      for(IFunctionEntry function: dynamicClass.getFunctions()){
         FunctionCaller caller = new FunctionCaller(function);
         inst.setFunc(function.getName(), (s, a) -> {
               try{
@@ -217,11 +217,11 @@ public abstract class ProxyMaker{
   public static class FunctionCaller implements Caller{
     private final String signature;
 
-    private final MethodEntry entry;
+    private final IFunctionEntry entry;
 
     private final Function<?, Object> function;
 
-    private FunctionCaller(MethodEntry functionEntry){
+    private FunctionCaller(IFunctionEntry functionEntry){
       this.entry = functionEntry;
       this.function = functionEntry.getFunction();
       this.signature = functionEntry.getName() + functionEntry.getType();

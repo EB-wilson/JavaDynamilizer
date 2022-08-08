@@ -128,28 +128,31 @@ public class DynamicClass{
     return superDyClass;
   }
 
-  @SuppressWarnings({"rawtypes", "unchecked"})
+  public Map<String, Initializer<?>> getVarInit(){
+    return varInit;
+  }
+
   public DataPool genPool(DataPool basePool){
     return new DataPool(data){
       @Override
-      public Function select(String name, FunctionType type){
-        Function res1 = super.select(name, type);
+      public IFunctionEntry select(String name1, FunctionType type){
+        IFunctionEntry res1 = super.select(name1, type);
         if(res1 != null) return res1;
 
-        return basePool.select(name, type);
+        return basePool.select(name1, type);
       }
 
       @Override
-      protected IVariable getVariable(String name){
-        IVariable var = super.getVariable(name);
+      public IVariable getVariable(String name1){
+        IVariable var = super.getVariable(name1);
         if(var != null) return var;
 
-        return basePool.getVariable(name);
+        return basePool.getVariable(name1);
       }
     };
   }
 
-  public MethodEntry[] getFunctions(){
+  public IFunctionEntry[] getFunctions(){
     return data.getFunctions();
   }
 
@@ -182,7 +185,7 @@ public class DynamicClass{
 
       if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers())) continue;
 
-      data.set(new JavaMethodEntry(method));
+      data.setFunction(new JavaMethodEntry(method, data));
     }
 
     for(Field field: template.getDeclaredFields()){
@@ -202,7 +205,7 @@ public class DynamicClass{
     if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers()))
       throw new IllegalHandleException("method template must be public and static");
 
-    data.set(new JavaMethodEntry(method));
+    data.setFunction(new JavaMethodEntry(method, data));
   }
 
   /**访问一个字段样版，不同于{@link DynamicClass#visitClass(Class)}，此方法只访问一个单独的字段并创建其行为样版。
@@ -222,13 +225,25 @@ public class DynamicClass{
    * @param func 描述函数行为的匿名函数
    * @param argTypes 函数的形式参数类型*/
   public <S, R> void setFunction(String name, Function<S, R> func, Class<?>... argTypes){
-    data.set(name, (a, s) -> func, argTypes);
+    data.setFunction(name, func, argTypes);
+  }
+
+  public <S, R> void setFunction(String name, Function.SuperGetFunction<S, R> func, Class<?>... argTypes){
+    data.setFunction(name, func, argTypes);
   }
 
   /**同{@link DynamicClass#setFunction(String, Function, Class[])}，只是匿名函数无返回值*/
   public <S> void setFunction(String name, Function.NonRetFunction<S> func, Class<?>... argTypes){
     this.<S, Object>setFunction(name, (s, a) -> {
       func.invoke(s, a);
+      return null;
+    }, argTypes);
+  }
+
+  /**同{@link DynamicClass#setFunction(String, Function.SuperGetFunction, Class[])}，只是匿名函数无返回值*/
+  public <S> void setFunction(String name, Function.NonRetSuperGetFunc<S> func, Class<?>... argTypes){
+    this.<S, Object>setFunction(name, (s, sup, a) -> {
+      func.invoke(s, sup, a);
       return null;
     }, argTypes);
   }

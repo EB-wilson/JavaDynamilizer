@@ -35,18 +35,19 @@ public class DynamicTest{
     };
     //DynamicMaker maker = DynamicMaker.getDefault();
 
+    dyc.setFunction("run", (s, superPointer, a) -> {
+      System.out.println("yuj");
+      superPointer.invokeFunc("run", a);
+    }, long.class);
+
     DynamicObject<Runner> r = maker.newInstance(Runner.class, dyc);
     Runner rr = r.self();
 
-    long sum = 0;
-    for(int i = 0; i < 1024; i++){
-      sum += (Long) ((DynamicMaker.SuperInvoker)rr).invokeSuper("run(J)", System.nanoTime());
-    }
-    r.setVar("a", String.valueOf(sum));
-    long a = sum;
-    System.out.println(a);
-    System.out.println(r.<String>getVar("a"));
+    Func<Void> run = r.getFunction("run", long.class);
+    run.invoke((long)8799);
 
+    r.invokeFunc("run", System.nanoTime());
+    rr.p();
     rr.p();
   }
 
@@ -60,12 +61,9 @@ public class DynamicTest{
       map.put("run2", 1);
     }
 
-    public long run(long time){
-      StringBuilder b = new StringBuilder();
-      for(int i = 0; i < 1; i++){
-        b.append(i);
-      }
-      return System.nanoTime() - time;
+    public void run(long time){
+      System.out.println(time);
+      a = String.valueOf(time);
     }
 
     public void p(){

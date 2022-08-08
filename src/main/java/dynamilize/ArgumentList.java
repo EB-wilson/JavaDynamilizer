@@ -2,21 +2,23 @@ package dynamilize;
 
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.Stack;
 
 /**实参列表的封装对象，记录了一份实际参数列表，提供了一个泛型获取参数的方法，用于减少函数引用时所需的冗余类型转换。
  * <p>参数表对象为可复用对象，引用完毕后请使用{@link ArgumentList#recycle()}回收对象以减少堆内存更新频率
  *
  * @author EBwilson */
 public class ArgumentList{
-  public static final Object[][] ARG_LEN_MAP = new Object[32][];
+  public static int MAX_INSTANCE_STACK = 2048;
+
+  public static final Stack<Object[]>[] ARG_LEN_MAP = new Stack[64];
+  public static final Object[] EMP_ARG = new Object[0];
 
   static {
-    for(int i = 0; i < ARG_LEN_MAP.length; i++){
-      ARG_LEN_MAP[i] = new Object[i];
+    for(int i = 1; i < ARG_LEN_MAP.length; i++){
+      ARG_LEN_MAP[i] = new Stack<>();
     }
   }
-
-  private static final int MAX_INSTANCE_STACK = 16384;
 
   private static final LinkedList<ArgumentList> INSTANCES = new LinkedList<>();
 
@@ -25,6 +27,21 @@ public class ArgumentList{
 
   /**私有构造器，不允许外部直接使用*/
   private ArgumentList(){}
+
+  public static Object[] getList(int len){
+    if(len == 0) return EMP_ARG;
+
+    Stack<Object[]> stack = ARG_LEN_MAP[len];
+    return stack.isEmpty()? new Object[len]: stack.pop();
+  }
+
+  public static void recycleList(Object[] list){
+    if(list.length == 0) return;
+
+    Stack<Object[]> stack = ARG_LEN_MAP[list.length];
+    if(stack.size() > MAX_INSTANCE_STACK) return;
+    stack.push(list);
+  }
 
   /**使用一组实参列表获取一个封装参数列表，优先从实例堆栈中弹出，若堆栈中没有实例才会构造一个新的
    * 参数如果包含null，建议使用{@link ArgumentList#asWithType(FunctionType, Object...)}来获取参数列表，在明确指定形参的情况下执行可以具有更高的效率

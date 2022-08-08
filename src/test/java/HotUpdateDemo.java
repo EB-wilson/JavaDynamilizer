@@ -5,8 +5,8 @@ public class HotUpdateDemo{
   public static final DynamicClass Updater = DynamicClass.get("Updater");
 
   static {
-    Updater.setFunction("update", (s, a) -> {
-      s.superPoint().invokeFunc("update", a);
+    Updater.setFunction("update", (s, sup, a) -> {
+      sup.invokeFunc("update", a);
     });
   }
 

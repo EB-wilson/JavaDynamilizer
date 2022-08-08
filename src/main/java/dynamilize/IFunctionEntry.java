@@ -1,15 +1,18 @@
 package dynamilize;
 
-public interface MethodEntry{
+public interface IFunctionEntry{
   /**
-   * 获取方法入口的名称
+   * 获取入口的名称
    */
   String getName();
 
   /**
-   * 此方法入口是否允许被替换
+   * 此入口是否允许被替换
    */
   boolean modifiable();
+
+  /**获取此入口所在的池*/
+  DataPool owner();
 
   /**
    * 获取此方法入口定义的引用匿名函数

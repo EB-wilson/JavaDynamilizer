@@ -22,4 +22,13 @@ public interface Function<S, R>{
   interface NonRetFunction<S>{
     void invoke(DynamicObject<S> self, ArgumentList args);
   }
+
+  interface SuperGetFunction<S, R>{
+    R invoke(DynamicObject<S> self, DataPool.ReadOnlyPool superPointer, ArgumentList args);
+  }
+
+  interface NonRetSuperGetFunc<S>{
+    void invoke(DynamicObject<S> self, DataPool.ReadOnlyPool superPointer, ArgumentList args);
+  }
+
 }

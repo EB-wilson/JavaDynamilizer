@@ -20,18 +20,14 @@ public interface DynamicObject<Self>{
    * @return 此对象的动态类型*/
   DynamicClass getDyClass();
 
-  /**获取对象的超类只读池
-   * <p>生成器实施应当实现此方法使之引用数据池的{@link DataPool#getSuper()}方法并返回值
-   *
-   * @return 超类池读取器*/
-  DataPool.ReadOnlyPool superPoint();
-
   /**获得对象的成员变量
    * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#getVariable(String)}方法并返回值
    *
    * @param name 变量名称
    * @return 变量的值*/
   IVariable getVariable(String name);
+
+  DataPool.ReadOnlyPool baseSuperPointer();
 
   /**设置对象的成员变量
    * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#setVariable(IVariable)}方法，自身的参数分别传入
@@ -85,18 +81,33 @@ public interface DynamicObject<Self>{
    * @param name 函数名称
    * @param type 函数的参数类型
    * @return 指定函数的匿名表示*/
-  <R> Function<Self, R> getFunc(String name, FunctionType type);
+  IFunctionEntry getFunc(String name, FunctionType type);
+
+  default <R> Func<R> getFunction(String name, FunctionType type){
+    IFunctionEntry entry = getFunc(name, type);
+    if(entry == null)
+      throw new IllegalHandleException("no such function: " + name + type);
+
+    return a -> (R) entry.<Self, R>getFunction().invoke(this, a);
+  }
 
   default <R> Function<Self, R> getFunc(String name, Class<?>... types){
     FunctionType type = FunctionType.inst(types);
-    Function<Self, R> f = getFunc(name, type);
+    Function<Self, R> f = getFunc(name, type).getFunction();
+    type.recycle();
+    return f;
+  }
+
+  default <R> Func<R> getFunction(String name, Class<?>... types){
+    FunctionType type = FunctionType.inst(types);
+    Func<R> f = getFunction(name, type);
     type.recycle();
     return f;
   }
 
   /**以lambda模式设置对象的成员函数，lambda模式下对对象的函数变更仅对此对象有效，变更即时生效,
    * 若需要使变更对所有实例都生效，则应当对此对象的动态类型引用{@link DynamicClass#visitClass(Class)}方法变更行为样版
-   * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#set(String, Function, Class[])}方法，并将参数一一对应传入
+   * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#setFunction(String, Function, Class[])}方法，并将参数一一对应传入
    * <p><strong>注意，含有泛型的参数，无论类型参数如何，形式参数类型始终为{@link Object}</strong>
    *
    * @param name 设置的函数名称
@@ -104,10 +115,20 @@ public interface DynamicObject<Self>{
    * @param argTypes 形式参数的类型列表*/
   <R> void setFunc(String name, Function<Self, R> func, Class<?>... argTypes);
 
+  <R> void setFunc(String name, Function.SuperGetFunction<Self, R> func, Class<?>... argTypes);
+
   /**与{@link DynamicObject#setFunc(String, Function, Class[])}效果一致，只是传入的函数没有返回值*/
   default void setFunc(String name, Function.NonRetFunction<Self> func, Class<?>... argTypes){
     setFunc(name, (s, a) -> {
       func.invoke(s, a);
+      return null;
+    }, argTypes);
+  }
+
+  /**与{@link DynamicObject#setFunc(String, Function.SuperGetFunction, Class[])}效果一致，只是传入的函数没有返回值*/
+  default void setFunc(String name, Function.NonRetSuperGetFunc<Self> func, Class<?>... argTypes){
+    setFunc(name, (s, sup, a) -> {
+      func.invoke(s, sup, a);
       return null;
     }, argTypes);
   }
@@ -144,7 +165,7 @@ public interface DynamicObject<Self>{
    * @return 函数返回值*/
   default <R> R invokeFunc(String name, ArgumentList args){
     FunctionType type = args.type();
-    Function<Self, R> res = getFunc(name, type);
+    Function<Self, R> res = getFunc(name, type).getFunction();
 
     if(res == null)
       throw new IllegalHandleException("no such method declared: " + name);

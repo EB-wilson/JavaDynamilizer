@@ -10,7 +10,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class FunctionType{
-  public static int MAX_RECYCLE = 16384;
+  public static int MAX_RECYCLE = 2048;
 
   private static final Class<?>[] EMPTY = new Class[0];
   private static final LinkedList<FunctionType> RECYCLE_POOL = new LinkedList<>();
