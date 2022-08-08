@@ -86,6 +86,7 @@ public abstract class DynamicMaker{
   public static final IMethod<ArgumentList, Object[]> GET_LIST = ARG_LIST_TYPE.getMethod(OBJECT_TYPE.asArray(), "getList", INT_TYPE);
   public static final IMethod<ArgumentList, Void> RECYCLE_LIST = ARG_LIST_TYPE.getMethod(VOID_TYPE, "recycleList", OBJECT_TYPE.asArray());
 
+  private static final MethodHandles.Lookup LOOKUP_INST = MethodHandles.lookup();
   private static final Map<String, Set<FunctionType>> OVERRIDES = new HashMap<>();
   private static final Set<Class<?>> INTERFACE_TEMP = new HashSet<>();
   private static final Class[] EMPTY_CLASSES = new Class[0];
@@ -191,9 +192,9 @@ public abstract class DynamicMaker{
       Constructor<?> c = cstr;
       DynamicObject<T> inst = (DynamicObject<T>) constructors.computeIfAbsent(clazz, e -> new HashMap<>())
                                                              .computeIfAbsent(type, t -> {
-        MethodHandles.Lookup lookup = MethodHandles.lookup();
+
         try{
-          return lookup.unreflectConstructor(c);
+          return LOOKUP_INST.unreflectConstructor(c);
         }catch(IllegalAccessException e){
           throw new RuntimeException(e);
         }
@@ -415,7 +416,6 @@ public abstract class DynamicMaker{
       code.assign(self, datP, dataPool);
 
       ILocal<DataPool.ReadOnlyPool> base = code.local(READONLY_POOL_TYPE);
-      ILocal<DataPool.ReadOnlyPool> nil = code.local(READONLY_POOL_TYPE);
       code.invoke(code.getParam(3), GET_READER, base, self);
       code.assign(self, base, basePoolPointer);
 
@@ -429,8 +429,8 @@ public abstract class DynamicMaker{
       code.invoke(null, GET_LIST, argList, length);
       if(cstr.getParameterCount() > 0){
         ILocal<Integer> index = code.local(INT_TYPE);
-        for(int i = 2; i < code.getParamList().size(); i++){
-          code.loadConstant(index, i - 2);
+        for(int i = 3; i < code.getParamList().size(); i++){
+          code.loadConstant(index, i - 3);
           code.arrayPut(argList, index, code.getRealParam(i));
         }
       }

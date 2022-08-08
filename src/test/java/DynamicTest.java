@@ -36,23 +36,73 @@ public class DynamicTest{
     //DynamicMaker maker = DynamicMaker.getDefault();
 
     dyc.setFunction("run", (s, superPointer, a) -> {
-      System.out.println("yuj");
       superPointer.invokeFunc("run", a);
     }, long.class);
 
-    DynamicObject<Runner> r = maker.newInstance(Runner.class, dyc);
-    Runner rr = r.self();
+    DynamicObject<Runner> r = maker.newInstance(Runner.class, dyc, "name", 879);
+    Runner rr = new Runner("n", 90);
 
     Func<Void> run = r.getFunction("run", long.class);
-    run.invoke((long)8799);
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+    run.invoke(System.nanoTime());
+
+    System.out.println("========================");
 
     r.invokeFunc("run", System.nanoTime());
-    rr.p();
-    rr.p();
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+    r.invokeFunc("run", System.nanoTime());
+
+    System.out.println("==========================");
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
+    rr.run(System.nanoTime());
   }
 
   public static class Runner{
     public String a;
+
+    public Runner(String name, int time){}
 
     private static final HashMap<String, Integer> map = new HashMap<>();
 
@@ -62,8 +112,7 @@ public class DynamicTest{
     }
 
     public void run(long time){
-      System.out.println(time);
-      a = String.valueOf(time);
+      System.out.println(System.nanoTime() - time);
     }
 
     public void p(){

@@ -125,30 +125,33 @@ public class DataPool{
    * @param type 函数的参数类型
    * @return 选中函数的函数入口*/
   public IFunctionEntry select(String name, FunctionType type){
-    Map<FunctionType, IFunctionEntry> map = funcPool.get(name);
+    Map<FunctionType, IFunctionEntry> map;
     IFunctionEntry res;
 
-    if(map != null){
-      res = map.get(type);
-      if(res != null) return res;
+    DataPool curr = this;
+    while(curr != null){
+      map = curr.funcPool.get(name);
+      if(map != null){
+        res = map.get(type);
+        if(res != null) return res;
+      }
+
+      curr = curr.superPool;
     }
 
-    if(superPool != null) return superPool.select(name, type);
-
-    return null;
-  }
-
-  private <S, R> Function<S, R> selectMatch(String name, FunctionType type){
-    Map<FunctionType, IFunctionEntry> map = funcPool.get(name);
-    if(map != null){
-      for(Map.Entry<FunctionType, IFunctionEntry> entry: map.entrySet()){
-        if(entry.getKey().match(type.getTypes())){
-          return entry.getValue().getFunction();
+    curr = this;
+    while(curr != null){
+      map = curr.funcPool.get(name);
+      if(map != null){
+        for(Map.Entry<FunctionType, IFunctionEntry> entry: map.entrySet()){
+          if(entry.getKey().match(type.getTypes())){
+            return entry.getValue();
+          }
         }
       }
-    }
 
-    if(superPool != null) return superPool.selectMatch(name, type);
+      curr = curr.superPool;
+    }
 
     return null;
   }
