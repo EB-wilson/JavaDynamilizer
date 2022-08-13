@@ -6,14 +6,14 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
+import java.util.Stack;
 
 public class FunctionType{
   public static int MAX_RECYCLE = 2048;
 
   private static final Class<?>[] EMPTY = new Class[0];
-  private static final LinkedList<FunctionType> RECYCLE_POOL = new LinkedList<>();
+  private static final Stack<FunctionType> RECYCLE_POOL = new Stack<>();
 
   private Class<?>[] paramType;
   private int hash;
@@ -66,9 +66,9 @@ public class FunctionType{
     return inst(paramType.toArray(new Class[0]));
   }
 
-  public static FunctionType inst(Class<?>... paramType){
+  public static synchronized FunctionType inst(Class<?>... paramType){
     if(RECYCLE_POOL.isEmpty()) return new FunctionType(paramType);
-    FunctionType res = RECYCLE_POOL.removeFirst();
+    FunctionType res = RECYCLE_POOL.pop();
     res.paramType = paramType;
     res.hash = Arrays.hashCode(paramType);
     return res;
@@ -156,7 +156,7 @@ public class FunctionType{
 
     paramType = EMPTY;
     hash = -1;
-    RECYCLE_POOL.add(this);
+    RECYCLE_POOL.push(this);
   }
 
   @Override

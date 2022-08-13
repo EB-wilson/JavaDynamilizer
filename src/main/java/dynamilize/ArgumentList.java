@@ -1,7 +1,6 @@
 package dynamilize;
 
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.Stack;
 
 /**实参列表的封装对象，记录了一份实际参数列表，提供了一个泛型获取参数的方法，用于减少函数引用时所需的冗余类型转换。
@@ -20,7 +19,7 @@ public class ArgumentList{
     }
   }
 
-  private static final LinkedList<ArgumentList> INSTANCES = new LinkedList<>();
+  private static final Stack<ArgumentList> INSTANCES = new Stack<>();
 
   private Object[] args;
   private FunctionType type;
@@ -28,7 +27,7 @@ public class ArgumentList{
   /**私有构造器，不允许外部直接使用*/
   private ArgumentList(){}
 
-  public static Object[] getList(int len){
+  public static synchronized Object[] getList(int len){
     if(len == 0) return EMP_ARG;
 
     Stack<Object[]> stack = ARG_LEN_MAP[len];
@@ -48,7 +47,7 @@ public class ArgumentList{
    *
    * @param args 实参列表
    * @return 封装参数对象*/
-  public static ArgumentList as(Object... args){
+  public static synchronized ArgumentList as(Object... args){
     ArgumentList res = INSTANCES.isEmpty()? new ArgumentList(): INSTANCES.pop();
     res.args = args;
     res.type = FunctionType.inst(args);
@@ -56,7 +55,7 @@ public class ArgumentList{
     return res;
   }
 
-  public static ArgumentList asWithType(FunctionType type, Object... args){
+  public static synchronized ArgumentList asWithType(FunctionType type, Object... args){
     ArgumentList res = INSTANCES.isEmpty()? new ArgumentList(): INSTANCES.pop();
     res.args = args;
     res.type = type;

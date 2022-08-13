@@ -5,7 +5,7 @@ plugins {
 apply plugin: 'maven-publish'
 
 group 'com.github.EB-wilson'
-version '1.4-A2'
+version '1.4-A3'
 
 repositories {
   mavenCentral()

@@ -91,6 +91,7 @@ public abstract class DynamicMaker{
   private static final Set<Class<?>> INTERFACE_TEMP = new HashSet<>();
   private static final Class[] EMPTY_CLASSES = new Class[0];
   public static final ILocal[] LOCALS_EMP = new ILocal[0];
+  public static final HashSet<FunctionType> EMP_MAP = new HashSet<>();
   private final JavaHandleHelper helper;
 
   private final HashMap<ClassImplements<?>, Class<?>> classPool = new HashMap<>();
@@ -394,6 +395,7 @@ public abstract class DynamicMaker{
     // }
     for(Constructor<?> cstr: baseClass.getDeclaredConstructors()){
       if((cstr.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) continue;
+      if(Modifier.isFinal(cstr.getModifiers())) continue;
 
       List<Parameter<?>> params = new ArrayList<>(Arrays.asList(Parameter.as(
           0, DynamicClass.class, "$dyc$",
@@ -444,6 +446,7 @@ public abstract class DynamicMaker{
 
     Stack<Class<?>> interfaceStack = new Stack<>();
     HashMap<String, HashSet<FunctionType>> overrideMethods = new HashMap<>();
+    HashMap<String, HashSet<FunctionType>> finalMethods = new HashMap<>();
 
     Class<?> curr = baseClass;
 
@@ -463,9 +466,13 @@ public abstract class DynamicMaker{
         if(Modifier.isStatic(method.getModifiers())) continue;
         if((method.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) continue;
 
-        if(Modifier.isFinal(method.getModifiers())) continue;
+        if(Modifier.isFinal(method.getModifiers())){
+          finalMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
+          continue;
+        }
 
-        if(!overrideMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method))) continue;
+        if(!overrideMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method))
+        || finalMethods.getOrDefault(method.getName(), EMP_MAP).contains(FunctionType.from(method))) continue;
 
         String methodName = method.getName();
         ClassInfo<?> returnType = asType(method.getReturnType());
