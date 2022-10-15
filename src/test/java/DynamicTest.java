@@ -1,4 +1,6 @@
-import dynamilize.*;
+import dynamilize.DynamicClass;
+import dynamilize.DynamicMaker;
+import dynamilize.DynamicObject;
 import dynamilize.classmaker.ASMGenerator;
 import dynamilize.classmaker.BaseClassLoader;
 import dynamilize.classmaker.ClassInfo;
@@ -7,7 +9,6 @@ import org.objectweb.asm.Opcodes;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
 
 public class DynamicTest{
   public static void main(String[] args){
@@ -20,7 +21,7 @@ public class DynamicTest{
       protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces){
         ClassInfo<?> i = makeClassInfo(baseClass, interfaces);
         
-        File f = new File("temp", "Output.class");
+        File f = new File("temp", baseClass.getSimpleName() + ".class");
         f.getParentFile().mkdirs();
 
         try{
@@ -33,90 +34,27 @@ public class DynamicTest{
         return (Class<? extends T>) i.generate(generator);
       }
     };
-    //DynamicMaker maker = DynamicMaker.getDefault();
 
     dyc.setFunction("run", (s, superPointer, a) -> {
       superPointer.invokeFunc("run", a);
     }, long.class);
 
-    DynamicObject<Runner> r = maker.newInstance(Runner.class, dyc, "name", 879);
-    Runner rr = new Runner("n", 90);
+    DynamicObject<Runner> r = maker.newInstance(Runner.class, dyc, "abc", 78);
 
-    Func<Void> run = r.getFunction("run", long.class);
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-    run.invoke(System.nanoTime());
-
-    System.out.println("========================");
-
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-    r.invokeFunc("run", System.nanoTime());
-
-    System.out.println("==========================");
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
-    rr.run(System.nanoTime());
+    maker.newInstance(r.getClass(), dyc, "erf", 88).invokeFunc("run");
   }
 
   public static class Runner{
-    public String a;
+    public String name;
+    public int time;
 
-    public Runner(String name, int time){}
-
-    private static final HashMap<String, Integer> map = new HashMap<>();
-
-    static {
-      map.put("run1", 0);
-      map.put("run2", 1);
+    public Runner(String name, int time){
+      this.name = name;
+      this.time = time;
     }
 
-    public void run(long time){
-      System.out.println(System.nanoTime() - time);
-    }
-
-    public void p(){
-      System.out.println(a);
+    public void run(){
+      System.out.println(name + ":" + time);
     }
   }
 }
