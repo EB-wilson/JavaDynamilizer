@@ -407,18 +407,18 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       labelMap.put(label, new Label());
     }
 
-    if(block.owner().name().equals("<init>") && (!(block.codes().get(0) instanceof IInvoke<?>)
-    || !((IInvoke<?>)block.codes().get(0)).method().name().equals("<init>"))){
-      block.owner().owner().superClass().getConstructor();
-
-      methodVisitor.visitMethodInsn(
-          INVOKESPECIAL,
-          block.owner().owner().superClass().internalName(),
-          "<init>",
-          "()V",
-          false
-      );
-    }
+    //if(block.owner().name().equals("<init>") && (!(block.codes().get(0) instanceof IInvoke<?>)
+    //|| !((IInvoke<?>)block.codes().get(0)).method().name().equals("<init>"))){
+    //  block.owner().owner().superClass().getConstructor();
+    //
+    //  methodVisitor.visitMethodInsn(
+    //      INVOKESPECIAL,
+    //      block.owner().owner().superClass().internalName(),
+    //      "<init>",
+    //      "()V",
+    //      false
+    //  );
+    //}
 
     currCodeBlock = block;
     codeCount = 0;

@@ -679,10 +679,10 @@ public abstract class DynamicMaker{
     HashMap<Method, Integer> callSuperCaseMap = new HashMap<>();
 
     // public <init>(DynamicClass $dyC$, DataPool $datP$, DataPool.ReadOnlyPool $basePool$, *parameters*){
-    //   super(*parameters*);
     //   this.$dynamic_type$ = $dyC$;
     //   this.$datapool$ = $datP$;
     //   this.$varValuePool$ = new HashMap<>();
+    //   super(*parameters*);
     //   this.$superbasepointer$ = $datapool$.getReader(this);
     //
     //   this.$datapool$.init(*parameters*);
@@ -699,25 +699,26 @@ public abstract class DynamicMaker{
       List<Parameter<?>> superParams = Arrays.asList(Parameter.asParameter(cstr.getParameters()));
       params.addAll(superParams);
 
-      IMethod<?, Void> constructor = classInfo.superClass().getConstructor(superParams.stream().map(Parameter::getType).toArray(IClass[]::new));
+      IMethod<?, Void> constructor =classInfo.superClass().getConstructor(superParams.stream().map(Parameter::getType).toArray(IClass[]::new));
 
       CodeBlock<Void> code = classInfo.declareConstructor(Modifier.PUBLIC, params.toArray(new Parameter[0]));
       List<ILocal<?>> l = code.getParamList();
       ILocal<?> self = code.getThis();
-      code.invokeSuper(self, constructor, null, l.subList(3, l.size()).toArray(LOCALS_EMP));
 
       ILocal<DynamicClass> dyC = code.getParam(1);
       ILocal<DataPool> datP = code.getParam(2);
       code.assign(self, dyC, dyType);
       code.assign(self, datP, dataPool);
 
-      ILocal<DataPool.ReadOnlyPool> base = code.local(READONLY_POOL_TYPE);
-      code.invoke(code.getParam(3), GET_READER, base, self);
-      code.assign(self, base, basePoolPointer);
-
       ILocal<HashMap> map = code.local(HASH_MAP_TYPE);
       code.newInstance(HASH_MAP_TYPE.getConstructor(), map);
       code.assign(self, map, varPool);
+
+      code.invokeSuper(self, constructor, null, l.subList(3, l.size()).toArray(LOCALS_EMP));
+
+      ILocal<DataPool.ReadOnlyPool> base = code.local(READONLY_POOL_TYPE);
+      code.invoke(code.getParam(3), GET_READER, base, self);
+      code.assign(self, base, basePoolPointer);
 
       ILocal<Object[]> argList = code.local(OBJECT_TYPE.asArray());
       ILocal<Integer> length = code.local(INT_TYPE);

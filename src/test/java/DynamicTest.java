@@ -51,6 +51,7 @@ public class DynamicTest{
     public Runner(String name, int time){
       this.name = name;
       this.time = time;
+      run();
     }
 
     public void run(){
