@@ -23,7 +23,7 @@
     dyMap.setFunc("put", (self, args) -> {
       self.superPointer().invokeFunc("put", args);
       System.out.println("map putted, key: " + args.get(0) + ", value: " + args.get(1) + ".");
-    }, Object.class, Objec.class);
+    }, Object.class, Object.class);
 
 这时，如果执行`map.put("first", "hello world")`，那么会在系统输出流中收到如下信息：
 
