@@ -9,6 +9,8 @@
       ......
 	}
 
+> 当前这个项目还尚不成熟和健壮，需要更多的使用与建议来进一步完善和优化，如果您有能力还请不吝参与此框架的开发。
+
 ## 基本使用
 创建一个最简单的动态实例，它委托自java类HashMap:
 
@@ -37,7 +39,7 @@
     DynamicObject<?> dyObj = DynamicMaker.getDefault().newInstance(new Class[]{Map.class}, Demo);
     Map<?, ?> map = (Map<?, ?>)dyObj;
 
-但是实现接口你必须使用`setFunc`方法对所有的接口抽象方法进行实现，否则对此方法的引用会抛出致命异常。
+但是在实现接口时，您必须使用`setFunc`方法来对所有的接口抽象方法进行实现，否则对此方法的引用会抛出致命异常。
 
 ## 动态类型
 
