@@ -11,7 +11,7 @@ public class ProxySample{
   });
 
   public static void main(String[] args){
-    ArrayList<String> list = proxyMaker.newProxyInstance(ArrayList.class).self();
+    ArrayList<String> list = proxyMaker.newProxyInstance(ArrayList.class).objSelf();
     list.add("first element");
   }
 }

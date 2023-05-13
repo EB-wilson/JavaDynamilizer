@@ -22,7 +22,7 @@ class World implements Module{
   DynamicMaker maker = DynamicMaker.getDefault();
 
   public Scene scene = new Scene();
-  public Entities entities = maker.newInstance(Entities.class, HotUpdateDemo.Updater).self();
+  public Entities entities = maker.newInstance(Entities.class, HotUpdateDemo.Updater).objSelf();
 
   @Override
   public void update(){

@@ -12,8 +12,10 @@
 ## 基本使用
 创建一个最简单的动态实例，它委托自java类HashMap:
 
-    DynamicClass Demo = DynamicClass.get("Demo");
-    HashMap<?, ?> map = DynamicMaker.getDefault().newInstance(HashMap.class, Demo);
+    DynamicMaker maker = DynamicMaker.getDefault();
+    DynamicClass Sample = DynamicClass.get("Sample"); 
+
+    HashMap<String, String> map = maker.newInstance(HashMap.class, Sample).objSelf();
 
 其中，map对象具有所有hashMap的行为并且可以分配给HashMap字段或者参数。而本工具的重点在于动态化实例，上面创建的map实例已经被动态化，它具有`dynamilize.DynamicObject`的特征，对于此对象已经可以进行行为变更和代码插桩了。
 
@@ -65,15 +67,16 @@
 例如声明一个类型用作样版：
 
     public class Template{
-      public static void helloWorld(){
+      public static void run(){
         System.out.println("hello world");
       }
     }
 
 那么用动态类型去访问：
 
-    Sample.visitClass(Template.class);
-    DynamicObject<?> dyObj = DynamicMaker.getDefault().newInstance(Sample);
+    DynamicMaker maker = DynamicMaker.getDefault();
+    Sample.visitClass(Template.class, maker.getHelper());
+    DynamicObject<?> dyObj = maker.newInstance(Sample);
     dyObj.invokeFunc("run");
 
 这将会在系统输出流中打印`hello world`。  
@@ -100,8 +103,9 @@
 
 如果访问动态对象的变量`var1`：
 
-    Sample.visitClass(Template.class);
-    DynamicObject<?> dyObj = DynamicMaker.getDefault().newInstance(Sample);
+    DynamicMaker maker = DynamicMaker.getDefault();
+    Sample.visitClass(Template.class, maker.getHelper());
+    DynamicObject<?> dyObj = maker.newInstance(Sample);
     System.out.println(dyObject.getVar("var1"));
 
 这会在系统输出流种打印`hello world`。  
@@ -131,11 +135,6 @@
 则会使得对象的`time`变量与对象被创建时的系统纳秒计数一致。  
 函数与常量模式参数尾部的布尔值是确定此变量是否为**常量**，若为true，则此变量不可被改变。
 ****
-动态类型的行为声明是可变的，但这个可变对于实例的影响有一定的范围，以下列举主要的情况：
-- 在一个动态对象被创建之前的所有对动态类型的变更，都对新创建的动态对象有效
-- 对于一个已被创建的动态对象，在动态类型中声明新的函数和变量，以及修改动态类型中的变量初始值都不会对已存在的对象产生直接影响
-- 对于一个已被创建的动态对象，若它的某一函数没有通过对象的`setFunc`方法变更，则对动态类型的此方法进行变更将会改变这个对象的该函数行为
-- 若一个已存在的动态对象的某一函数已经被`setFunc`方法变更，则其动态类型的行为变更对该对象的此函数行为没有直接影响
-- 对象的变量初始值只和被创建时有关，比如对于变量的样版，变量初始值或者初始值函数只和被创建时，该字段的值或函数有关；对于函数，变量初始值的函数只在被创建时调用并返回值。
+- 动态类型声明的变量初始值只在对象被创建时有效，任何时候改变类的变量初始值都不会对已有实例造成影响
 
-您可以参照项目中给出的一些使用例子和javadoc了解更多关于这个仓库的东西。
+您可以参照项目中给出的一些使用[案例]()和javadoc了解更多关于这个仓库的使用方法。

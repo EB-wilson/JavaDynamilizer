@@ -79,7 +79,7 @@ public class DataPool{
   public void setFunction(String name, Function<?, ?> function, Class<?>... argsType){
     FunctionType type = FunctionType.inst(argsType);
     funcPool.computeIfAbsent(name, n -> new HashMap<>())
-        .put(type, new FunctionEntry<>(name, true, function, type, this));
+        .put(type, new FunctionEntry<>(name, true, function, type));
   }
 
   public <R, S> void setFunction(String name, Function.SuperGetFunction<S,R> func, Class<?>[] argTypes){
@@ -89,9 +89,6 @@ public class DataPool{
   }
 
   public void setFunction(IFunctionEntry functionEntry){
-    if(functionEntry.owner() != this)
-      throw new IllegalHandleException("function owner pool must equal added pool");
-
     funcPool.computeIfAbsent(functionEntry.getName(), e -> new HashMap<>()).put(functionEntry.getType(), functionEntry);
   }
 

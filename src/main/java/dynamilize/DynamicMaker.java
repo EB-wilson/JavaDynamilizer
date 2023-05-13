@@ -115,7 +115,26 @@ public abstract class DynamicMaker{
     BaseClassLoader loader = new BaseClassLoader(DynamicMaker.class.getClassLoader());
     ASMGenerator generator = new ASMGenerator(loader, Opcodes.V1_8);
 
-    return new DynamicMaker(acc -> acc.setAccessible(true)){
+    return new DynamicMaker(new JavaHandleHelper() {
+      @Override
+      public IVariable genJavaVariableRef(Field field, DataPool targetPool) {
+        Demodulator.makeModuleOpen(field.getType().getModule(), field.getType(), DynamicMaker.class.getModule());
+        field.setAccessible(true);
+        return new JavaVariable(field);
+      }
+
+      @Override
+      public IFunctionEntry genJavaMethodRef(Method method, DataPool targetPool) {
+        Demodulator.makeModuleOpen(method.getReturnType().getModule(), method.getReturnType(), DynamicMaker.class.getModule());
+
+        for (Class<?> type : method.getParameterTypes()) {
+          Demodulator.makeModuleOpen(type.getModule(), type, DynamicMaker.class.getModule());
+        }
+
+        method.setAccessible(true);
+        return new JavaMethodEntry(method, targetPool);
+      }
+    }){
       @Override
       protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces){
         return makeClassInfo(baseClass, interfaces).generate(generator);
@@ -267,8 +286,7 @@ public abstract class DynamicMaker{
         for(Field field: curr.getDeclaredFields()){
           if(Modifier.isStatic(field.getModifiers()) || isInternalField(field.getName())) continue;
 
-          helper.setAccess(field);
-          res.setVariable(new JavaVariable(field));
+          res.setVariable(helper.genJavaVariableRef(field, res));
         }
         curr = curr.getSuperclass();
       }
@@ -685,7 +703,7 @@ public abstract class DynamicMaker{
     //   super(*parameters*);
     //   this.$superbasepointer$ = $datapool$.getReader(this);
     //
-    //   this.$datapool$.init(*parameters*);
+    //   this.$datapool$.init(this, *parameters*);
     // }
     for(Constructor<?> cstr: baseClass.getDeclaredConstructors()){
       if((cstr.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) continue;
