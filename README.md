@@ -137,4 +137,4 @@
 ****
 - 动态类型声明的变量初始值只在对象被创建时有效，任何时候改变类的变量初始值都不会对已有实例造成影响
 
-您可以参照项目中给出的一些使用[案例]()和javadoc了解更多关于这个仓库的使用方法。
+您可以参照项目中给出的一些使用[案例](https://github.com/EB-wilson/JavaDynamilizer/tree/master/usage_sample/src/main/java/com/github/ebwilson/sample)和javadoc了解更多关于这个仓库的使用方法。
