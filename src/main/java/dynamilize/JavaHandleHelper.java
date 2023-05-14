@@ -8,6 +8,8 @@ import java.lang.reflect.Method;
  *
  * @author EBwilson */
 public interface JavaHandleHelper{
+  void makeAccess(Object object);
+
   IVariable genJavaVariableRef(Field field, DataPool targetPool);
 
   IFunctionEntry genJavaMethodRef(Method method, DataPool targetPool);

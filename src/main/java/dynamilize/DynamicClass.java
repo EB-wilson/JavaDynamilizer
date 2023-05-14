@@ -177,6 +177,7 @@ public class DynamicClass{
 
       if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers())) continue;
 
+      helper.makeAccess(method);
       data.setFunction(helper.genJavaMethodRef(method, data));
     }
 
@@ -197,6 +198,7 @@ public class DynamicClass{
     if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers()))
       throw new IllegalHandleException("method template must be public and static");
 
+    helper.makeAccess(method);
     data.setFunction(helper.genJavaMethodRef(method, data));
   }
 
@@ -278,6 +280,6 @@ public class DynamicClass{
 
   @Override
   public String toString(){
-    return "dyC:" + name;
+    return "dynamic class:" + name;
   }
 }

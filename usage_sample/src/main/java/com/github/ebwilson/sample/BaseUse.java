@@ -37,7 +37,7 @@ public class BaseUse {
         map.put("b", "string 2");
         map.put("c", "string 3");
 
-        System.out.println("===========sep line==========");
+        System.out.println("\n===========sep line==========\n");
 
         //对于动态对象，可以像脚本语言一样使用钩子函数：
         Function<HashMap<String, String>, Object> hook = dyMap.getFunc("put", Object.class, Object.class);
@@ -51,7 +51,7 @@ public class BaseUse {
         map.put("e", "string 5");
         map.put("f", "string 6");
 
-        System.out.println("===========sep line==========");
+        System.out.println("\n===========sep line==========\n");
 
         //您也可以用反射式的语句调用动态对象的方法：
         System.out.println("reflectional invoke:");
@@ -65,7 +65,7 @@ public class BaseUse {
         * 您将在这个段落了解到动态类型的用法及意义
         * =======================================================*/
 
-        System.out.println("===========sep line==========");
+        System.out.println("\n===========sep line==========\n");
         //上面已经定义过一个动态类型Sample，直接使用它，首先给动态类型声明一个函数：
         Sample.setFunction("put", (self, su, arg) -> {
             System.out.println("Dynamic class instance handle:");
@@ -79,7 +79,7 @@ public class BaseUse {
         map.put("j", "string 9");
         map.put("k", "string 10");
 
-        System.out.println("===========sep line==========");
+        System.out.println("\n===========sep line==========\n");
 
         //同样的，如果新增函数
         Sample.setFunction("putTime", (self, arg) -> {
@@ -91,7 +91,7 @@ public class BaseUse {
         //从map中获取currTime，可见给动态类型设置的行为被同步到了它的实例当中
         System.out.println("get time entry, res: " + map.get("currTime"));
 
-        System.out.println("===========sep line==========");
+        System.out.println("\n===========sep line==========\n");
 
         //当然，使用lambda为对象设置行为有些繁琐，为动态类型定义方法还有更为方便的形式
         //在下方，我们定义了一个类型Template作为类型样板，在此使样板类型生效
@@ -102,7 +102,7 @@ public class BaseUse {
         System.out.println("get: " + map.get("b"));
         System.out.println("get: " + map.get("c"));
 
-        System.out.println("===========sep line==========");
+        System.out.println("\n===========sep line==========\n");
 
         //另外，动态类型也是可以被继承的，就像如下所示
         DynamicClass SampleChild = DynamicClass.declare("SampleChild", Sample);

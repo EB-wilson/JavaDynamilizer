@@ -117,21 +117,33 @@ public abstract class DynamicMaker{
 
     return new DynamicMaker(new JavaHandleHelper() {
       @Override
+      public void makeAccess(Object object) {
+        if (object instanceof Method method){
+          Demodulator.makeModuleOpen(method.getReturnType().getModule(), method.getReturnType(), DynamicMaker.class.getModule());
+
+          for (Class<?> type : method.getParameterTypes()) {
+            Demodulator.makeModuleOpen(type.getModule(), type, DynamicMaker.class.getModule());
+          }
+
+          method.setAccessible(true);
+        }
+        else if (object instanceof Field field){
+          Demodulator.makeModuleOpen(field.getType().getModule(), field.getType(), DynamicMaker.class.getModule());
+
+          field.setAccessible(true);
+        }
+        else if (object instanceof Class<?> clazz){
+          Demodulator.makeModuleOpen(clazz.getModule(), clazz.getPackage(), DynamicMaker.class.getModule());
+        }
+      }
+
+      @Override
       public IVariable genJavaVariableRef(Field field, DataPool targetPool) {
-        Demodulator.makeModuleOpen(field.getType().getModule(), field.getType(), DynamicMaker.class.getModule());
-        field.setAccessible(true);
         return new JavaVariable(field);
       }
 
       @Override
       public IFunctionEntry genJavaMethodRef(Method method, DataPool targetPool) {
-        Demodulator.makeModuleOpen(method.getReturnType().getModule(), method.getReturnType(), DynamicMaker.class.getModule());
-
-        for (Class<?> type : method.getParameterTypes()) {
-          Demodulator.makeModuleOpen(type.getModule(), type, DynamicMaker.class.getModule());
-        }
-
-        method.setAccessible(true);
         return new JavaMethodEntry(method, targetPool);
       }
     }){
@@ -286,6 +298,7 @@ public abstract class DynamicMaker{
         for(Field field: curr.getDeclaredFields()){
           if(Modifier.isStatic(field.getModifiers()) || isInternalField(field.getName())) continue;
 
+          helper.makeAccess(field);
           res.setVariable(helper.genJavaVariableRef(field, res));
         }
         curr = curr.getSuperclass();
@@ -309,7 +322,16 @@ public abstract class DynamicMaker{
    * @param interfaces 需要实现的接口列表*/
   @SuppressWarnings("unchecked")
   protected <T> Class<? extends T> getDynamicBase(Class<T> base, Class<?>[] interfaces){
-    return (Class<? extends T>) classPool.computeIfAbsent(new ClassImplements<>(base, interfaces), e -> generateClass(base, interfaces));
+    return (Class<? extends T>) classPool.computeIfAbsent(new ClassImplements<>(base, interfaces), e -> {
+      Class<?> c = base;
+
+      while (c != null){
+        c = c.getSuperclass();
+        helper.makeAccess(c);
+      }
+
+      return generateClass(base, interfaces);
+    });
   }
 
   /**由基类与接口列表建立动态类的打包名称，打包名称具有唯一性（或者足够高的离散性，不应出现频繁的碰撞）和不变性
@@ -759,7 +781,6 @@ public abstract class DynamicMaker{
 
     Stack<Class<?>> interfaceStack = new Stack<>();
     HashMap<String, HashSet<FunctionType>> overrideMethods = new HashMap<>();
-    HashMap<String, HashSet<FunctionType>> finalMethods = new HashMap<>();
 
     Class<?> curr = baseClass;
 
@@ -775,17 +796,7 @@ public abstract class DynamicMaker{
 
       typeClass = asType(curr);
       for(Method method: curr.getDeclaredMethods()){
-        // 如果方法是静态的，或者方法不对子类可见则不重写此方法
-        if(Modifier.isStatic(method.getModifiers())) continue;
-        if((method.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) continue;
-
-        if(Modifier.isFinal(method.getModifiers())){
-          finalMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
-          continue;
-        }
-
-        if(!overrideMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method))
-        || finalMethods.getOrDefault(method.getName(), EMP_MAP).contains(FunctionType.from(method))) continue;
+        if (!filterMethod(overrideMethods, method)) continue;
 
         String methodName = method.getName();
         ClassInfo<?> returnType = asType(method.getReturnType());
@@ -1143,6 +1154,14 @@ public abstract class DynamicMaker{
     dycAnno.annotateTo(classInfo, null);
 
     return classInfo;
+  }
+
+  private static boolean filterMethod(HashMap<String, HashSet<FunctionType>> overrideMethods, Method method) {
+    // 如果方法是静态的，或者方法不对子类可见则不重写此方法
+    if(Modifier.isStatic(method.getModifiers()) || Modifier.isFinal(method.getModifiers())) return false;
+    if((method.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) return false;
+
+    return overrideMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
   }
 
   @SuppressWarnings("unchecked")

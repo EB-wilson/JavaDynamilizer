@@ -7,6 +7,8 @@ import dynamilize.classmaker.code.annotation.IAnnotation;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.*;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -281,7 +283,15 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     try{
       return (Class<T>) classLoader.loadClass(classInfo.name(), false);
     }catch(ClassNotFoundException e){
-      classLoader.declareClass(classInfo.name(), genByteCode(classInfo));
+      byte[] b = genByteCode(classInfo);
+
+      try(FileOutputStream o = new FileOutputStream("tst.class")){
+        o.write(b);
+      } catch (IOException ex) {
+        throw new RuntimeException(ex);
+      }
+
+      classLoader.declareClass(classInfo.name(), b);
 
       return (Class<T>) classLoader.loadClass(classInfo.name(), false);
     }
