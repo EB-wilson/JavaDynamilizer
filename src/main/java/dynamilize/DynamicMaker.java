@@ -326,8 +326,8 @@ public abstract class DynamicMaker{
       Class<?> c = base;
 
       while (c != null){
-        c = c.getSuperclass();
         helper.makeAccess(c);
+        c = c.getSuperclass();
       }
 
       return generateClass(base, interfaces);
@@ -556,6 +556,31 @@ public abstract class DynamicMaker{
             //   *[return]* super.*name*(*parameters*);
             // }
             if(superMethod != null){
+              if (Modifier.isInterface(superMethod.owner().modifiers())){
+                IClass<?> c = classInfo.superClass();
+                boolean found = false;
+                t: while (c != null && c != OBJECT_TYPE){
+                  for (IClass<?> interf: c.interfaces()) {
+                    if (interf == superMethod.owner()){
+                      found = true;
+                      break t;
+                    }
+                  }
+
+                  c = c.superClass();
+                }
+
+                if (found){
+                  superMethod = new MethodInfo<>(
+                      c,
+                      Modifier.PUBLIC,
+                      superMethod.name(),
+                      superMethod.returnType(),
+                      superMethod.parameters().toArray(new Parameter[0])
+                  );
+                }
+              }
+
               CodeBlock<?> code = classInfo.declareMethod(
                   Modifier.PRIVATE | Modifier.FINAL,
                   methodName + CALLSUPER,
@@ -781,6 +806,7 @@ public abstract class DynamicMaker{
 
     Stack<Class<?>> interfaceStack = new Stack<>();
     HashMap<String, HashSet<FunctionType>> overrideMethods = new HashMap<>();
+    HashMap<String, HashSet<FunctionType>> finalMethods = new HashMap<>();
 
     Class<?> curr = baseClass;
 
@@ -796,13 +822,13 @@ public abstract class DynamicMaker{
 
       typeClass = asType(curr);
       for(Method method: curr.getDeclaredMethods()){
-        if (!filterMethod(overrideMethods, method)) continue;
+        if (!filterMethod(overrideMethods, finalMethods, method)) continue;
 
         String methodName = method.getName();
         ClassInfo<?> returnType = asType(method.getReturnType());
 
         if(OVERRIDES.computeIfAbsent(methodName, e -> new HashSet<>()).add(FunctionType.from(method))){
-          superMethod = !Modifier.isAbstract(method.getModifiers()) && !curr.isInterface() || method.isDefault()? typeClass.getMethod(
+          superMethod = !Modifier.isAbstract(method.getModifiers()) || (curr.isInterface() && method.isDefault())? typeClass.getMethod(
               returnType,
               methodName,
               Arrays.stream(method.getParameterTypes()).map(ClassInfo::asType).toArray(ClassInfo[]::new)
@@ -916,6 +942,31 @@ public abstract class DynamicMaker{
           //   *[return]* super.*name*(*parameters*);
           // }
           if(superMethod != null){
+            if (Modifier.isInterface(superMethod.owner().modifiers())){
+              IClass<?> c = classInfo.superClass();
+              boolean found = false;
+              t: while (c != null && c != OBJECT_TYPE){
+                for (IClass<?> interf: c.interfaces()) {
+                  if (interf == superMethod.owner()){
+                    found = true;
+                    break t;
+                  }
+                }
+
+                c = c.superClass();
+              }
+
+              if (found){
+                superMethod = new MethodInfo<>(
+                    c,
+                    Modifier.PUBLIC,
+                    superMethod.name(),
+                    superMethod.returnType(),
+                    superMethod.parameters().toArray(new Parameter[0])
+                );
+              }
+            }
+
             CodeBlock<?> code = classInfo.declareMethod(
                 Modifier.PRIVATE | Modifier.FINAL,
                 methodName + CALLSUPER,
@@ -1156,12 +1207,19 @@ public abstract class DynamicMaker{
     return classInfo;
   }
 
-  private static boolean filterMethod(HashMap<String, HashSet<FunctionType>> overrideMethods, Method method) {
+  private static boolean filterMethod(HashMap<String, HashSet<FunctionType>> overrideMethods, HashMap<String, HashSet<FunctionType>> finalMethods, Method method) {
+    //对于已经被声明为final的方法将被添加到排除列表
+    if (Modifier.isFinal(method.getModifiers())){
+      finalMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
+      return false;
+    }
+
     // 如果方法是静态的，或者方法不对子类可见则不重写此方法
-    if(Modifier.isStatic(method.getModifiers()) || Modifier.isFinal(method.getModifiers())) return false;
+    if(Modifier.isStatic(method.getModifiers())) return false;
     if((method.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) return false;
 
-    return overrideMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
+    return !finalMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).contains(FunctionType.from(method))
+        && overrideMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
   }
 
   @SuppressWarnings("unchecked")
