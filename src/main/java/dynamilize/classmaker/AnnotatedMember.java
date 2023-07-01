@@ -13,9 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AnnotatedMember implements AnnotatedElement{
-  private static ClassInfo<Target> TARGET_TYPE;
-  private static ClassInfo<Repeatable> REPEATABLE_TYPE;
-
   private final String name;
   private int modifiers;
 
@@ -67,12 +64,11 @@ public abstract class AnnotatedMember implements AnnotatedElement{
       annotationsList = new ArrayList<>();
     }
 
-    if(REPEATABLE_TYPE == null) REPEATABLE_TYPE = ClassInfo.asType(Repeatable.class);
     checkType(annotation);
 
     for(IAnnotation<?> anno: annotationsList){
       if(anno.annotationType().equals(annotation.annotationType())){
-        if(!anno.annotationType().typeClass().hasAnnotation(REPEATABLE_TYPE))
+        if(!anno.annotationType().typeClass().hasAnnotation(ClassInfo.asType(Repeatable.class)))
           throw new IllegalHandleException("cannot add multiple annotations with same name that without repeatable meta annotation");
       }
     }
@@ -81,9 +77,7 @@ public abstract class AnnotatedMember implements AnnotatedElement{
   }
 
   protected void checkType(IAnnotation<?> annotation){
-    if(TARGET_TYPE == null) TARGET_TYPE = ClassInfo.asType(Target.class);
-
-    IAnnotation<Target> tarMark = annotation.annotationType().typeClass().getAnnotation(TARGET_TYPE);
+    IAnnotation<Target> tarMark = annotation.annotationType().typeClass().getAnnotation(ClassInfo.asType(Target.class));
     if(tarMark == null) return;
 
     for(ElementType type: tarMark.asAnnotation().value()){

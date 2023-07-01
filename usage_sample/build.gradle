@@ -2,9 +2,6 @@ plugins {
     id 'java'
 }
 
-group = 'com.github.EB-wilson'
-version = '1.4-B1'
-
 repositories {
     mavenCentral()
 }

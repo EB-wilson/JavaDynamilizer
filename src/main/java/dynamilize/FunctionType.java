@@ -9,6 +9,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Stack;
 
+/**函数类型封装对象，记录函数的参数类型用于比对和搜索函数
+ *
+ * @author EBwilson */
 public class FunctionType{
   /**复用回收区容量，改数值通常不需要设置，但如果您可能需要大规模的递归或大量的并发调用，那么您可能需要将这个限制设置为一个更高的数值*/
   public static int MAX_RECYCLE = 4096;

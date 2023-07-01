@@ -3,6 +3,9 @@ package dynamilize;
 import java.util.Arrays;
 import java.util.Objects;
 
+/**保存类的超类及实现接口的容器，用于快速确认委托的构造类型
+ *
+ * @author EBwilson */
 class ClassImplements<T>{
   final Class<T> base;
   final Class<?>[] interfaces;

@@ -1,5 +1,6 @@
 package dynamilize;
 
+@FunctionalInterface
 public interface Func<R>{
   R invoke(ArgumentList args);
 

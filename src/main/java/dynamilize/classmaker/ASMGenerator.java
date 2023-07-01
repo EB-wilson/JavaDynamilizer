@@ -16,7 +16,11 @@ import java.util.*;
 
 import static dynamilize.classmaker.ClassInfo.*;
 
-/**基于ASM字节码操作框架实现的默认类型生成器，*/
+/**基于ASM字节码操作框架实现的默认类型生成器
+ *
+ * <br><i>该类存在一个尚未修复的性能问题，即对部分可堆栈化的局部变量的优化</i>
+ *
+ * @author EBwilson */
 public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   protected static final Map<Character, Map<Character, Integer>> CASTTABLE = new HashMap<>();
 
@@ -277,7 +281,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   @SuppressWarnings("unchecked")
-  protected  <T> Class<T> generateClass(ClassInfo<T> classInfo) throws ClassNotFoundException{
+  protected <T> Class<T> generateClass(ClassInfo<T> classInfo) throws ClassNotFoundException{
     try{
       return (Class<T>) classLoader.loadClass(classInfo.name(), false);
     }catch(ClassNotFoundException e){

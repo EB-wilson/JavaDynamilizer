@@ -12,7 +12,7 @@ import java.util.HashMap;
 public class BaseUse {
     @SuppressWarnings("unchecked")
     public static void main(String[] args) {
-        DynamicMaker maker = DynamicMaker.getDefault();//获取默认动态工厂
+        DynamicMaker maker = DynamicFactory.getDefault();//获取默认动态工厂
         DynamicClass Sample = DynamicClass.get("Sample");//创建动态类型，这是必要的，无论动态类是否有行为，get方法会返回给定名称的动态类型，如果类型尚不存在则会创建一个新的动态类型
 
         /*===============================

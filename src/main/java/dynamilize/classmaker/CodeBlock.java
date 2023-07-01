@@ -7,8 +7,10 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 
 import static dynamilize.classmaker.ClassInfo.*;
-import static dynamilize.classmaker.ClassInfo.CHAR_TYPE;
 
+/**描述方法具体行为的代码块对象，方法被分解为{@linkplain Element 基本行为}串联的线性结构，提供了快速添加行为的方法
+ *
+ * @author EBwilson */
 public class CodeBlock<R> implements ICodeBlock<R>{
   protected ArrayList<Element> statements = new ArrayList<>();
 
@@ -157,9 +159,21 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     );
   }
 
+  public final <S, T extends S> void assignStatic(IField<S> src, ILocal<T> to){
+    codes().add(
+        new GetField<>(null, src, to)
+    );
+  }
+
   public final <S> void assignStatic(IClass<?> clazz, ILocal<S> src, String to){
     codes().add(
         new PutField<>(null, src, clazz.getField(src.type(), to))
+    );
+  }
+
+  public final <S> void assignStatic(ILocal<S> src, IField<? extends S> to){
+    codes().add(
+        new PutField<>(null, src, to)
     );
   }
 
@@ -172,6 +186,12 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   public final <Ret> void invoke(ILocal<?> target, String method, ILocal<Ret> returnTo, ILocal<?>... args){
     codes().add(
         new Invoke<>(target, false, target.type().getMethod(returnTo.type(), method, Arrays.stream(args).map(ILocal::type).toArray(IClass<?>[]::new)), returnTo, args)
+    );
+  }
+
+  public final <Ret> void invokeStatic(IMethod<?, Ret> method, ILocal<Ret> returnTo, ILocal<?>... args){
+    codes().add(
+        new Invoke<>(null, false, method, returnTo, args)
     );
   }
 

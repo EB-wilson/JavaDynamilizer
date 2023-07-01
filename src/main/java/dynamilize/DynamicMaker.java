@@ -3,7 +3,6 @@ package dynamilize;
 import dynamilize.classmaker.*;
 import dynamilize.classmaker.code.*;
 import dynamilize.classmaker.code.annotation.AnnotationType;
-import org.objectweb.asm.Opcodes;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -103,55 +102,14 @@ public abstract class DynamicMaker{
     this.helper = helper;
   }
 
-  /**获取默认的动态类型工厂，工厂具备基于{@link ASMGenerator}与适用于<i>HotSpot JVM</i>运行时的{@link JavaHandleHelper}进行的实现。
-   * 适用于：
-   * <ul>
-   * <li>java运行时版本1.8的所有jvm
-   * <li>java运行时版本大于等于1.9的<i>甲骨文HotSpot JVM</i>
-   * <li><strong><i>IBM OpenJ9</i>运行时尚未支持</strong>
-   * </ul>
-   * 若有范围外的需求，可按需要进行实现*/
+  /**获取默认的动态类型工厂，工厂具备基于{@link ASMGenerator}与默认的{@link JavaHandleHelper}进行的实现。
+   * 若有范围外的需求，可按需要进行实现
+   *
+   * @deprecated DynamicMaker的预制创建已转移到DynamicFactory，此API将被移除
+   * @see DynamicFactory*/
+  @Deprecated
   public static DynamicMaker getDefault(){
-    BaseClassLoader loader = new BaseClassLoader(DynamicMaker.class.getClassLoader());
-    ASMGenerator generator = new ASMGenerator(loader, Opcodes.V1_8);
-
-    return new DynamicMaker(new JavaHandleHelper() {
-      @Override
-      public void makeAccess(Object object) {
-        if (object instanceof Method method){
-          Demodulator.makeModuleOpen(method.getReturnType().getModule(), method.getReturnType(), DynamicMaker.class.getModule());
-
-          for (Class<?> type : method.getParameterTypes()) {
-            Demodulator.makeModuleOpen(type.getModule(), type, DynamicMaker.class.getModule());
-          }
-
-          method.setAccessible(true);
-        }
-        else if (object instanceof Field field){
-          Demodulator.makeModuleOpen(field.getType().getModule(), field.getType(), DynamicMaker.class.getModule());
-
-          field.setAccessible(true);
-        }
-        else if (object instanceof Class<?> clazz){
-          Demodulator.makeModuleOpen(clazz.getModule(), clazz.getPackage(), DynamicMaker.class.getModule());
-        }
-      }
-
-      @Override
-      public IVariable genJavaVariableRef(Field field, DataPool targetPool) {
-        return new JavaVariable(field);
-      }
-
-      @Override
-      public IFunctionEntry genJavaMethodRef(Method method, DataPool targetPool) {
-        return new JavaMethodEntry(method, targetPool);
-      }
-    }){
-      @Override
-      protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces){
-        return makeClassInfo(baseClass, interfaces).generate(generator);
-      }
-    };
+    return DynamicFactory.getDefault();
   }
 
   /**使用默认构造函数构造没有实现额外接口的动态类的实例，实例的java类型委托类为{@link Object}
@@ -238,6 +196,7 @@ public abstract class DynamicMaker{
     }
   }
 
+  /**获取此maker的{@linkplain JavaHandleHelper java行为支持器}*/
   public JavaHandleHelper getHelper(){
     return helper;
   }
@@ -330,7 +289,7 @@ public abstract class DynamicMaker{
         c = c.getSuperclass();
       }
 
-      return generateClass(base, interfaces);
+      return generateClass(handleBaseClass(base), interfaces);
     });
   }
 
@@ -1264,6 +1223,16 @@ public abstract class DynamicMaker{
         message
     );
     code.thr(exception);
+  }
+
+  /**对委托基类的映射处理，通常来说直接返回类型本身，对此方法的覆写在需要进行包私有访问时才需要
+   * <br>具体来说，该映射在委托包私有方法时需要创建一串将包私有方法访问修饰符提升的类层次结构，分别去访问基类的各个超类所在包的保护域
+   * <br><strong>默认的实现是非包私有委托的</strong>
+   *
+   * @param baseClass 进行动态委托的基类
+   * @return 对基类进行映射处理的类，默认情况下就是类本身*/
+  protected <T> Class<? extends T> handleBaseClass(Class<T> baseClass){
+    return baseClass;
   }
 
   /**生成委托自基类并实现了给出的接口列表的类型，而类的行为描述请参考{@link DynamicMaker#makeClassInfo(Class, Class[])}，类型描述会在此方法产出。

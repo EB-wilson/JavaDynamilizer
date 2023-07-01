@@ -29,7 +29,7 @@ import java.util.*;
  *   public static String INFO = "HelloWorld";
  *
  *   public static main(String[] args){
- *     if(System.nanoTime() > 123456789){
+ *     if(System.nanoTime() < 123456789){
  *       System.out.println(INFO);
  *     }
  *     else System.out.println("Late")
@@ -38,7 +38,50 @@ import java.util.*;
  *
  * 要生成一个等效类型，应做如下描述：
  *
+ * ClassInfo<?> demoInfo = new ClassInfo<>(
+ *     Modifier.PUBLIC,
+ *     "Demo",
+ *     ClassInfo.OBJECT_TYPE//或者为null，默认指向java.lang.Object
+ * );
  *
+ * IField<String> INFO = demoInfo.declareField(
+ *     Modifier.PUBLIC | Modifier.STATIC,
+ *     "INFO",
+ *     ClassInfo.STRING_TYPE,
+ *     "HelloWorld"
+ * );
+ * IField<PrintWriter> out = ClassInfo.asType(System.class).getField(ClassInfo.asType(PrintWriter.class), "out");
+ *
+ * IMethod<?, Long> nanoTime = ClassInfo.asType(System.class).getMethod(ClassInfo.LONG_TYPE, "nanoTime");
+ * IMethod<?, Void> println = ClassInfo.asType(PrintWriter.class).getMethod(ClassInfo.VOID_TYPE, "println", ClassInfo.STRING_TYPE);
+ *
+ * CodeBlock<Void> code = demoInfo.declareMethod(
+ *     Modifier.PUBLIC | Modifier.STATIC,
+ *     "main",
+ *     ClassInfo.VOID_TYPE,
+ *     Parameter.trans(ClassInfo.STRING_TYPE.asArray())
+ * );
+ * ILocal<Long> time = code.local(ClassInfo.LONG_TYPE);
+ * code.invokeStatic(nanoTime, time);
+ *
+ * ILocal<String> lo = code.local(ClassInfo.STRING_TYPE);
+ * ILocal<PrintWriter> ou = code.local(ClassInfo.asType(PrintWriter.class));
+ * code.assignStatic(out, ou);
+ *
+ * Label label = code.label();
+ * ILocal<Long> cons = code.local(ClassInfo.LONG_TYPE);
+ * code.loadConstant(cons, 123456789L);
+ * code.compare(time, ">=", cons, label);
+ *
+ * code.assignStatic(INFO, lo);
+ * code.invoke(ou, println, null, lo);
+ * code.returnVoid();
+ *
+ * code.markLabel(label);
+ * code.loadConstant(lo, "Late");
+ * code.invoke(ou, println, null, lo);
+ *
+ * 对此demoInfo进行生成即可得到等效的类
  * }</pre>
  * 这样的过程是繁琐的，但是也是快速的，跳过编译器产生类文件牺牲了可操作性以换取了类的生成速度，建议将行为描述为模板后再基于模板进行变更以提高开发效率*/
 public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{

@@ -5,6 +5,9 @@ import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
+/**对java字段的引用对象，基于{@linkplain MethodHandle 方法句柄}的默认内部实现
+ *
+ * @author EBwilson */
 @SuppressWarnings("unchecked")
 public class JavaVariable implements IVariable{
   private final Field field;

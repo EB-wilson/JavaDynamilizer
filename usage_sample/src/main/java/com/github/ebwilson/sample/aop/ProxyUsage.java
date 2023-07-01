@@ -1,6 +1,7 @@
 package com.github.ebwilson.sample.aop;
 
 import dynamilize.DynamicClass;
+import dynamilize.DynamicFactory;
 import dynamilize.DynamicMaker;
 import dynamilize.ProxyMaker;
 
@@ -11,7 +12,7 @@ import java.util.HashMap;
 public class ProxyUsage {
     public static void main(String[] args) {
         //获取默认动态工厂
-        DynamicMaker maker = DynamicMaker.getDefault();
+        DynamicMaker maker = DynamicFactory.getDefault();
 
         //创建一个代理工厂，此类工厂将用于创建代理实例，当实例的任意可重写方法被调用时，其都会被捕获并转入声明该工厂时给定的代理函数，如下
         ProxyMaker proxyMaker = ProxyMaker.getDefault(maker, (proxy, superFunction, arg) -> {
