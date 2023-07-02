@@ -8,7 +8,7 @@ group 'com.github.EB-wilson'
 version 'V1.6-A1'
 
 sourceCompatibility = 17
-targetCompatibility = 17
+targetCompatibility = 9
 
 repositories {
   mavenCentral()
@@ -52,7 +52,7 @@ allprojects{
     ])
 
     options.compilerArgs.addAll([
-        "--add-exports", "java.base/jdk.internal.misc=ALL-UNNAMED"
+        "--release", "9"
     ])
   }
 }

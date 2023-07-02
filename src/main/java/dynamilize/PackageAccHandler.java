@@ -76,6 +76,7 @@ import java.util.Map;
 @SuppressWarnings("unchecked")
 public abstract class PackageAccHandler {
   public static final int PAC_PRI_FLAGS = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL;
+  public static final ILocal[] A = new ILocal[0];
   private final Map<Class<?>, Class<?>> classMap = new HashMap<>();
 
   public <T> Class<? extends T> handle(Class<T> baseClass) {
@@ -138,7 +139,7 @@ public abstract class PackageAccHandler {
               self,
               sup,
               null,
-              code.getParamList().toArray(ILocal[]::new)
+              code.getParamList().toArray(A)
           );
         }
         else{
@@ -148,7 +149,7 @@ public abstract class PackageAccHandler {
               self,
               sup,
               ret,
-              code.getParamList().toArray(ILocal[]::new)
+              code.getParamList().toArray(A)
           );
           code.returnValue(ret);
         }
@@ -162,7 +163,7 @@ public abstract class PackageAccHandler {
       IMethod<?, ?> su = superClass.getConstructor(Arrays.stream(constructor.getParameterTypes()).map(ClassInfo::asType).toArray(IClass[]::new));
 
       CodeBlock<?> code = res.declareConstructor(Modifier.PUBLIC, Parameter.asParameter(constructor.getParameters()));
-      code.invoke(code.getThis(), su, null, code.getParamList().toArray(ILocal[]::new));
+      code.invoke(code.getThis(), su, null, code.getParamList().toArray(A));
     }
 
     return (ClassInfo<? extends T>) res;

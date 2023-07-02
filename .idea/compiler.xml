@@ -5,12 +5,12 @@
       <profile name="Gradle Imported" enabled="true">
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.EB-wilson.UniverseCore/annotations/1.7.4/5d6040c94a07511e510c8f7392192d39561b8057/annotations-1.7.4.jar" />
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.EB-wilson.UniverseCore/annotations/1.8.1/44a4aa357469a08bf182a62ae01bb7323e8caa26/annotations-1.8.1.jar" />
         </processorPath>
         <module name="JavaDynamilizer.main" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="17" />
+    <bytecodeTargetLevel target="1.9" />
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
