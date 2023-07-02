@@ -29,7 +29,6 @@ publishing {
 
 dependencies {
   implementation rootProject
-  apiElements rootProject
 
   annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
 }
