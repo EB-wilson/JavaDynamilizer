@@ -102,14 +102,10 @@ public abstract class DynamicMaker{
     this.helper = helper;
   }
 
-  /**获取默认的动态类型工厂，工厂具备基于{@link ASMGenerator}与默认的{@link JavaHandleHelper}进行的实现。
-   * 若有范围外的需求，可按需要进行实现
-   *
-   * @deprecated DynamicMaker的预制创建已转移到DynamicFactory，此API将被移除
-   * @see DynamicFactory*/
+  /**@deprecated DynamicMaker的预制创建已转移到baseimpl模块DynamicFactory，此API将被移除*/
   @Deprecated
   public static DynamicMaker getDefault(){
-    return DynamicFactory.getDefault();
+    throw new IllegalHandleException("please use dynamilize.DynamicFactory in module JavaDynamilizer.baseimpl");
   }
 
   /**使用默认构造函数构造没有实现额外接口的动态类的实例，实例的java类型委托类为{@link Object}

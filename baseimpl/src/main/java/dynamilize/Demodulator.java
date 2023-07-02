@@ -108,14 +108,6 @@ public class Demodulator{
     return from.isOpen(pac.getName(), to);
   }
 
-  public static boolean checkAndMakeModuleOpen(Module from, Package pac, Module to){
-    if(!checkModuleOpen(from, pac, to)){
-      makeModuleOpen(from, pac, to);
-      return false;
-    }
-    return true;
-  }
-
   public static void ensureFieldOpen(){
     try{
       Class<?> clazz = Class.forName("jdk.internal.reflect.Reflection");

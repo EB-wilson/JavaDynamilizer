@@ -4,11 +4,15 @@ plugins {
 }
 apply plugin: 'maven-publish'
 
+ext{
+  JDERVersion = 'V1.6-B1'
+}
+
 group 'com.github.EB-wilson'
-version 'V1.6-A1'
+version JDERVersion
 
 sourceCompatibility = 17
-targetCompatibility = 9
+targetCompatibility = 8
 
 repositories {
   mavenCentral()
@@ -50,9 +54,11 @@ allprojects{
         "--add-opens", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
         "--add-opens", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
     ])
-
-    options.compilerArgs.addAll([
-        "--release", "9"
-    ])
   }
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs.addAll([
+      "--release", "8"
+  ])
 }

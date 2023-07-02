@@ -4,7 +4,6 @@ import dynamilize.classmaker.ASMGenerator;
 import dynamilize.classmaker.AbstractClassGenerator;
 import dynamilize.classmaker.BaseClassLoader;
 import dynamilize.classmaker.ByteClassLoader;
-import org.objectweb.asm.Opcodes;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -94,7 +93,7 @@ public class DynamicFactory {
    * @see DynamicFactory#setDefaultGenerator(ByteClassLoader, int)
    * @see BaseClassLoader*/
   public DynamicFactory setDefaultGenerator(){
-    return setDefaultGenerator(new BaseClassLoader(DynamicFactory.class.getClassLoader()), Opcodes.V1_8);
+    return setDefaultGenerator(new BaseClassLoader(DynamicFactory.class.getClassLoader()), 52);
   }
 
   /**将类型生成器设置为{@link ASMGenerator}的实现，该实现适用于绝大多数情况的JVM

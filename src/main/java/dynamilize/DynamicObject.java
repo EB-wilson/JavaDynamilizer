@@ -54,7 +54,7 @@ public interface DynamicObject<Self>{
   default <T> void setVar(String name, T value){
     IVariable var = getVariable(name);
     if(var == null){
-      var = new Variable(name, false);
+      var = new Variable(name);
       setVariable(var);
     }
     var.set(this, value);
@@ -106,7 +106,7 @@ public interface DynamicObject<Self>{
   }
 
   /**以lambda模式设置对象的成员函数，lambda模式下对对象的函数变更仅对此对象有效，变更即时生效,
-   * 若需要使变更对所有实例都生效，则应当对此对象的动态类型引用{@link DynamicClass#visitClass(Class)}方法变更行为样版
+   * 若需要使变更对所有实例都生效，则应当对此对象的动态类型引用{@link DynamicClass#visitClass(Class, JavaHandleHelper)}方法变更行为样版
    * <p>生成器实施应当实现此方法使之调用数据池的{@link DataPool#setFunction(String, Function, Class[])}方法，并将参数一一对应传入
    * <p><strong>注意，含有泛型的参数，无论类型参数如何，形式参数类型始终为{@link Object}</strong>
    *
@@ -176,5 +176,114 @@ public interface DynamicObject<Self>{
   /**将对象自身经过一次强转换并返回，请勿重写此方法的行为，这个方法仅为方便使用而设计，没有规范认为使用动态对象需要此方法获得实例*/
   default <T extends Self> T objSelf(){
     return (T) this;
+  }
+
+  //primitive getters and setters
+  //我讨厌装箱类型，是的，相当讨厌......
+  default boolean getVar(String name, boolean def){
+    IVariable var = getVariable(name);
+    if(var == null)
+      throw new IllegalHandleException("variable " + name + " was not defined");
+
+    return var.get(this, def);
+  }
+  default byte getVar(String name, byte def){
+    IVariable var = getVariable(name);
+    if(var == null)
+      throw new IllegalHandleException("variable " + name + " was not defined");
+
+    return var.get(this, def);
+  }
+  default short getVar(String name, short def){
+    IVariable var = getVariable(name);
+    if(var == null)
+      throw new IllegalHandleException("variable " + name + " was not defined");
+
+    return var.get(this, def);
+  }
+  default int getVar(String name, int def){
+    IVariable var = getVariable(name);
+    if(var == null)
+      throw new IllegalHandleException("variable " + name + " was not defined");
+
+    return var.get(this, def);
+  }
+  default long getVar(String name, long def){
+    IVariable var = getVariable(name);
+    if(var == null)
+      throw new IllegalHandleException("variable " + name + " was not defined");
+
+    return var.get(this, def);
+  }
+  default float getVar(String name, float def){
+    IVariable var = getVariable(name);
+    if(var == null)
+      throw new IllegalHandleException("variable " + name + " was not defined");
+
+    return var.get(this, def);
+  }
+  default double getVar(String name, double def){
+    IVariable var = getVariable(name);
+    if(var == null)
+      throw new IllegalHandleException("variable " + name + " was not defined");
+
+    return var.get(this, def);
+  }
+
+  default void setVar(String name, boolean value){
+    IVariable var = getVariable(name);
+    if(var == null){
+      var = new Variable(name);
+      setVariable(var);
+    }
+    var.set(this, value);
+  }
+  default void setVar(String name, byte value){
+    IVariable var = getVariable(name);
+    if(var == null){
+      var = new Variable(name);
+      setVariable(var);
+    }
+    var.set(this, value);
+  }
+  default void setVar(String name, short value){
+    IVariable var = getVariable(name);
+    if(var == null){
+      var = new Variable(name);
+      setVariable(var);
+    }
+    var.set(this, value);
+  }
+  default void setVar(String name, int value){
+    IVariable var = getVariable(name);
+    if(var == null){
+      var = new Variable(name);
+      setVariable(var);
+    }
+    var.set(this, value);
+  }
+  default void setVar(String name, long value){
+    IVariable var = getVariable(name);
+    if(var == null){
+      var = new Variable(name);
+      setVariable(var);
+    }
+    var.set(this, value);
+  }
+  default void setVar(String name, float value){
+    IVariable var = getVariable(name);
+    if(var == null){
+      var = new Variable(name);
+      setVariable(var);
+    }
+    var.set(this, value);
+  }
+  default void setVar(String name, double value){
+    IVariable var = getVariable(name);
+    if(var == null){
+      var = new Variable(name);
+      setVariable(var);
+    }
+    var.set(this, value);
   }
 }

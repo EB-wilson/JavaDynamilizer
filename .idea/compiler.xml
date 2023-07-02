@@ -8,12 +8,17 @@
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.EB-wilson.UniverseCore/annotations/1.8.1/44a4aa357469a08bf182a62ae01bb7323e8caa26/annotations-1.8.1.jar" />
         </processorPath>
         <module name="JavaDynamilizer.main" />
+        <module name="JavaDynamilizer.baseimpl.main" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="1.9" />
+    <bytecodeTargetLevel target="1.8">
+      <module name="JavaDynamilizer.impl.main" target="17" />
+      <module name="JavaDynamilizer.impl.test" target="17" />
+    </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="JavaDynamilizer.baseimpl.main" options="--add-exports java.base/jdk.internal.misc=ALL-UNNAMED" />
       <module name="JavaDynamilizer.main" options="--add-exports java.base/jdk.internal.misc=ALL-UNNAMED" />
     </option>
   </component>

@@ -16,6 +16,8 @@ import java.util.ArrayList;
  * @author EBwilson */
 @SuppressWarnings("unchecked")
 public class JavaMethodEntry implements IFunctionEntry{
+  private static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
+
   private final String name;
   private final FunctionType type;
   private final Function<?, ?> defFunc;
@@ -62,9 +64,8 @@ public class JavaMethodEntry implements IFunctionEntry{
     boolean thisP = thisPointer;
     boolean superP = superPointer;
 
-    MethodHandles.Lookup lookup = MethodHandles.lookup();
     try{
-      MethodHandle call = lookup.unreflect(invokeMethod);
+      MethodHandle call = LOOKUP.unreflect(invokeMethod);
       int offset = thisP? superP? 2: 1: 0;
 
       defFunc = (self, args) -> {
