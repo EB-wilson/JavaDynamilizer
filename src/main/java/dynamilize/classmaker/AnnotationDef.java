@@ -30,7 +30,7 @@ public class AnnotationDef<A extends Annotation> implements IAnnotation<A>{
 
     try{
       HashMap<String, Object> temp = new HashMap<>(annoType.defaultValues());
-      for(Method method: anno.annotationType().getDeclaredMethods()){
+      for(Method method: anno.annotationType().getMethods()){
         temp.put(method.getName(), method.invoke(anno));
       }
       pairs = new HashMap<>(temp);
