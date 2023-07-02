@@ -7,9 +7,9 @@ import dynamilize.classmaker.code.annotation.AnnotationType;
 import dynamilize.classmaker.code.annotation.IAnnotation;
 
 import java.lang.annotation.Annotation;
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class AnnotationDef<A extends Annotation> implements IAnnotation<A>{
   IClass<A> typeClass;
@@ -27,12 +27,11 @@ public class AnnotationDef<A extends Annotation> implements IAnnotation<A>{
     annoType = typeClass.asAnnotation(null);
 
     this.anno = anno;
-    MethodHandles.Lookup lookup = MethodHandles.lookup();
 
     try{
       HashMap<String, Object> temp = new HashMap<>(annoType.defaultValues());
       for(Method method: anno.annotationType().getDeclaredMethods()){
-        temp.put(method.getName(), lookup.unreflect(method).invoke(anno));
+        temp.put(method.getName(), method.invoke(anno));
       }
       pairs = new HashMap<>(temp);
     }catch(Throwable e){

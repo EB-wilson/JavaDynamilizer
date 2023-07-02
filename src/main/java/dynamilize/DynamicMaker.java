@@ -8,8 +8,6 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -85,7 +83,6 @@ public abstract class DynamicMaker{
   public static final IMethod<ArgumentList, Object[]> GET_LIST = ARG_LIST_TYPE.getMethod(OBJECT_TYPE.asArray(), "getList", INT_TYPE);
   public static final IMethod<ArgumentList, Void> RECYCLE_LIST = ARG_LIST_TYPE.getMethod(VOID_TYPE, "recycleList", OBJECT_TYPE.asArray());
 
-  private static final MethodHandles.Lookup LOOKUP_INST = MethodHandles.lookup();
   private static final Map<String, Set<FunctionType>> OVERRIDES = new HashMap<>();
   private static final Set<Class<?>> INTERFACE_TEMP = new HashSet<>();
   private static final Class[] EMPTY_CLASSES = new Class[0];
@@ -95,7 +92,7 @@ public abstract class DynamicMaker{
 
   private final HashMap<ClassImplements<?>, Class<?>> classPool = new HashMap<>();
   private final HashMap<Class<?>, DataPool> classPoolsMap = new HashMap<>();
-  private final HashMap<Class<?>, HashMap<FunctionType, MethodHandle>> constructors = new HashMap<>();
+  private final HashMap<Class<?>, HashMap<FunctionType, Constructor<?>>> constructors = new HashMap<>();
 
   /**创建一个实例，并传入其要使用的{@linkplain JavaHandleHelper java行为支持器}，子类引用此构造器可能直接设置默认的行为支持器而无需外部传入*/
   protected DynamicMaker(JavaHandleHelper helper){
@@ -175,15 +172,13 @@ public abstract class DynamicMaker{
         throw new NoSuchMethodError("no matched constructor found with parameter " + Arrays.toString(args));
 
       FunctionType type = FunctionType.inst(cstr.getParameterTypes());
-      Constructor<?> c = cstr;
+      Constructor c = cstr;
       DynamicObject<T> inst = (DynamicObject<T>) constructors.computeIfAbsent(clazz, e -> new HashMap<>())
-                                                             .computeIfAbsent(type, t -> {
-        try{
-          return LOOKUP_INST.unreflectConstructor(c);
-        }catch(IllegalAccessException e){
-          throw new RuntimeException(e);
-        }
-      }).invokeWithArguments(argsLis.toArray());
+          .computeIfAbsent(type, t -> {
+            helper.makeAccess(c);
+            return c;
+          }).newInstance(argsLis.toArray());
+
       type.recycle();
 
       return inst;

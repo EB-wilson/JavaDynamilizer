@@ -5,6 +5,8 @@ import dynamilize.classmaker.AbstractClassGenerator;
 import dynamilize.classmaker.BaseClassLoader;
 import dynamilize.classmaker.ByteClassLoader;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Objects;
@@ -119,14 +121,16 @@ public class DynamicFactory {
     helper = new JavaHandleHelper() {
       @Override
       public void makeAccess(Object object) {
-        if (object instanceof Method method){
-          Demodulator.makeModuleOpen(method.getReturnType().getModule(), method.getReturnType(), DynamicMaker.class.getModule());
+        if (object instanceof Executable ext){
+          if (ext instanceof Method method) Demodulator.makeModuleOpen(method.getReturnType().getModule(), method.getReturnType(), DynamicMaker.class.getModule());
 
-          for (Class<?> type : method.getParameterTypes()) {
+          if (ext instanceof Constructor<?> cstr) Demodulator.makeModuleOpen(cstr.getDeclaringClass().getModule(), cstr.getDeclaringClass(), DynamicMaker.class.getModule());
+
+          for (Class<?> type : ext.getParameterTypes()) {
             Demodulator.makeModuleOpen(type.getModule(), type, DynamicMaker.class.getModule());
           }
 
-          method.setAccessible(true);
+          ext.setAccessible(true);
         }
         else if (object instanceof Field field){
           Demodulator.makeModuleOpen(field.getType().getModule(), field.getType(), DynamicMaker.class.getModule());
