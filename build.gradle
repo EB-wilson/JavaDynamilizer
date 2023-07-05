@@ -5,7 +5,7 @@ plugins {
 apply plugin: 'maven-publish'
 
 ext{
-  JDERVersion = 'V1.6-B1'
+  JDERVersion = 'V1.7-A1'
 }
 
 group 'com.github.EB-wilson'
@@ -21,8 +21,9 @@ repositories {
 
 dependencies {
   implementation 'org.ow2.asm:asm:9.3'
+    testImplementation project(path: ':baseimpl')
 
-  annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
+    annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
 }
 
 publishing {

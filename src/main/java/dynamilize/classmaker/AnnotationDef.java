@@ -8,6 +8,7 @@ import dynamilize.classmaker.code.annotation.IAnnotation;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,6 +32,7 @@ public class AnnotationDef<A extends Annotation> implements IAnnotation<A>{
     try{
       HashMap<String, Object> temp = new HashMap<>(annoType.defaultValues());
       for(Method method: anno.annotationType().getMethods()){
+        if (Modifier.isStatic(method.getModifiers()) || method.getParameterCount() > 0) continue;
         temp.put(method.getName(), method.invoke(anno));
       }
       pairs = new HashMap<>(temp);

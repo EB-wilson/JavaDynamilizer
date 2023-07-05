@@ -9,13 +9,15 @@ import java.util.Objects;
 class ClassImplements<T>{
   final Class<T> base;
   final Class<?>[] interfaces;
+  final Class<?>[] aspects;
   private int hash;
 
-  public ClassImplements(Class<T> base, Class<?>[] interfaces){
+  public ClassImplements(Class<T> base, Class<?>[] interfaces, Class<?>[] aspects){
     this.base = base;
     this.interfaces = interfaces;
+    this.aspects = aspects;
     this.hash = Objects.hash(base);
-    hash = 31*hash + Arrays.hashCode(interfaces);
+    hash = 31*hash + Arrays.hashCode(interfaces)^Arrays.hashCode(aspects);
   }
 
   @Override
@@ -27,7 +29,7 @@ class ClassImplements<T>{
   public boolean equals(Object o){
     if(this == o) return true;
     if(!(o instanceof ClassImplements<?> that)) return false;
-    return base.equals(that.base) && interfaces.length == that.interfaces.length && hash == ((ClassImplements<?>) o).hash;
+    return base.equals(that.base) && interfaces.length == that.interfaces.length && (aspects != null && that.aspects != null && aspects.length == that.aspects.length) && hash == that.hash;
   }
 
   @Override

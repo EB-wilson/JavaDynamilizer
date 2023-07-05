@@ -56,29 +56,42 @@ public abstract class ProxyMaker{
   }
 
   public <T> DynamicObject<T> newProxyInstance(Class<T> base, Object... args){
-    return newProxyInstance(base, EMPTY_CLASSES, null, args);
+    return newProxyInstance(base, EMPTY_CLASSES, null, null, args);
   }
 
-  public <T> DynamicObject<T> newProxyInstance(Class<T> base, DynamicClass superDyClass, Object... args){
-    return newProxyInstance(base, EMPTY_CLASSES, superDyClass, args);
+  public <T> DynamicObject<T> newProxyInstance(Class<T> base, DynamicClass dyClass, Object... args){
+    return newProxyInstance(base, EMPTY_CLASSES, null, dyClass, args);
   }
 
-  public <T> DynamicObject<T> newProxyInstance(Class<T> base, Class<?>[] interfaces, Object... args){
-    return newProxyInstance(base, interfaces, null, args);
+  public DynamicObject<Object> newProxyInstance(Class<?>[] interfaces, Class<?>[] aspects){
+    return newProxyInstance(Object.class, interfaces, aspects, EMPTY_ARGS);
   }
 
-  /**创建一个代理实例，它的所有有效方法都已被提供的代理处理器拦截
+  public <T> DynamicObject<T> newProxyInstance(Class<T> base, Class<?>[] aspects, Object... args){
+    return newProxyInstance(base, EMPTY_CLASSES, aspects, null, args);
+  }
+
+  public <T> DynamicObject<T> newProxyInstance(Class<T> base, Class<?>[] aspects, DynamicClass superDyClass, Object... args){
+    return newProxyInstance(base, EMPTY_CLASSES, aspects, superDyClass, args);
+  }
+
+  public <T> DynamicObject<T> newProxyInstance(Class<T> base, Class<?>[] interfaces, Class<?>[] aspects, Object... args){
+    return newProxyInstance(base, interfaces, aspects, null, args);
+  }
+
+  /**
+   * 创建一个代理实例，它的所有有效方法都已被提供的代理处理器拦截
    *
-   * @param base 代理委托的java基类，代理实例可以正确的分配给此类型
-   * @param interfaces 代理实现的接口列表，所有方法均会实现以调用代理处理函数
+   * @param base         代理委托的java基类，代理实例可以正确的分配给此类型
+   * @param interfaces   代理实现的接口列表，所有方法均会实现以调用代理处理函数
    * @param dynamicClass 代理实例的动态类型，可以为空
-   * @param args 代理委托的类型中可用的构造函数的参数
-   *
-   * @return 一个代理实例*/
-  public <T> DynamicObject<T> newProxyInstance(Class<T> base, Class<?>[] interfaces, DynamicClass dynamicClass, Object... args){
-    DynamicClass dyClass = getProxyDyClass(dynamicClass, base, interfaces);
+   * @param args         代理委托的类型中可用的构造函数的参数
+   * @return 一个代理实例
+   */
+  public <T> DynamicObject<T> newProxyInstance(Class<T> base, Class<?>[] interfaces, Class<?>[] aspects, DynamicClass dynamicClass, Object... args){
+    DynamicClass dyClass = getProxyDyClass(dynamicClass, base, interfaces, aspects);
 
-    return maker.newInstance(base, interfaces, dyClass, args);
+    return maker.newInstance(base, interfaces, aspects, dyClass, args);
   }
 
   /**从类和接口实现获取声明为代理的动态类型，参数给出的动态类型会作为该类型的直接超类，可以为空
@@ -88,14 +101,14 @@ public abstract class ProxyMaker{
    * @param interfaces 代理实现的接口
    *
    * @return 声明为代理实现的动态类型*/
-  private <T> DynamicClass getProxyDyClass(DynamicClass dynamicClass, Class<T> base, Class<?>... interfaces){
-    ClassImplements<T> impl = new ClassImplements<>(base, interfaces);
+  private <T> DynamicClass getProxyDyClass(DynamicClass dynamicClass, Class<T> base, Class<?>[] interfaces, Class<?>[] aspects){
+    ClassImplements<T> impl = new ClassImplements<>(base, interfaces, aspects);
     DynamicClass dyc = dynamicClass == null? nonSuperProxy.get(impl): proxyMap.computeIfAbsent(dynamicClass, e -> new HashMap<>()).get(impl);
 
     if(dyc == null){
       dyc = dynamicClass == null? DynamicClass.get("defProxy$" + impl): DynamicClass.declare(dynamicClass.getName() + "$proxy$" + impl, dynamicClass);
 
-      Class<?> dyBase = maker.getDynamicBase(base, interfaces);
+      Class<?> dyBase = maker.getDynamicBase(base, interfaces, aspects);
       for(Method method: dyBase.getDeclaredMethods()){
         DynamicMaker.CallSuperMethod callSuper;
         if((callSuper = method.getAnnotation(DynamicMaker.CallSuperMethod.class)) != null && filterMethods(callSuper.srcMethod(), method.getParameterTypes())){

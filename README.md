@@ -1,20 +1,23 @@
 # JavaDynamilizer
-可简写为`JDER`，一个java语言的动态化支持框架，允许对java类型进行动态委托并构造动态实例，以类似脚本语言的“函数”和“变量”来替代“方法”和“字段”，它们是可以变化的，动态实例可以委托自任意可用的java类（非final且具有至少对子类可见的构造器），动态实例可以分配给被委托的java类。
+一个java语言的动态化支持框架，允许对java类型进行动态委托并构造动态实例，以类似脚本语言的“函数”和“变量”来替代“方法”和“字段”，它们是可以变化的，动态实例可以委托自任意可用的java类（非final且具有至少对子类可见的构造器），动态实例可以分配给被委托的java类。
 ****
-要引用JavaDynamilizer部署项目，你只需要在项目依赖中添加对此仓库的依赖：
+要引用JavaDynamilizer部署项目，需要在项目依赖中添加对此仓库的依赖：
 
     dependencies {
       ......
 	  implementation 'com.github.EB-wilson:JavaDynamilizer:$version'
+	  implementation 'com.github.EB-wilson:JavaDynamilizer:baseimpl:$version'//基础的内部实现，若您需要自定义实现抽象层的话，这个模块就并不是必要的
       ......
 	}
 
 > 当前这个项目还尚不成熟和健壮，需要更多的使用与建议来进一步完善和优化，如果您有能力还请不吝参与此框架的开发。
 
-## 基本使用
-创建一个最简单的动态实例，它委托自java类HashMap:
+您可以参照项目中给出的一些使用[案例](https://github.com/EB-wilson/JavaDynamilizer/tree/master/usage_sample/src/main/java/com/github/ebwilson/sample)和javadoc了解更多关于这个仓库的使用方法。下面是基本使用方法简述：
 
-    DynamicMaker maker = DynamicMaker.getDefault();
+## 基本使用
+创建一个最简单的全委托动态实例，它委托自java类HashMap:
+
+    DynamicMaker maker = DynamicFactory.getDefault();
     DynamicClass Sample = DynamicClass.get("Sample"); 
 
     HashMap<String, String> map = maker.newInstance(HashMap.class, Sample).objSelf();
@@ -36,7 +39,7 @@
 另外，在构建一个动态实例时，您还可以令实例实现一组接口，同样的，实例可以被正确的分配给这个接口的类型：
 
     DynamicClass Demo = DynamicClass.get("Demo");
-    DynamicObject<?> dyObj = DynamicMaker.getDefault().newInstance(new Class[]{Map.class}, Demo);
+    DynamicObject<?> dyObj = DynamicFactory.getDefault().newInstance(new Class[]{Map.class}, Demo);
     Map<?, ?> map = (Map<?, ?>)dyObj;
 
 但是在实现接口时，您必须使用`setFunc`方法来对所有的接口抽象方法进行实现，否则对此方法的引用会抛出致命异常。
@@ -76,7 +79,7 @@
 
 那么用动态类型去访问：
 
-    DynamicMaker maker = DynamicMaker.getDefault();
+    DynamicMaker maker = DynamicFactory.getDefault();
     Sample.visitClass(Template.class, maker.getHelper());
     DynamicObject<?> dyObj = maker.newInstance(Sample);
     dyObj.invokeFunc("run");
@@ -105,7 +108,7 @@
 
 如果访问动态对象的变量`var1`：
 
-    DynamicMaker maker = DynamicMaker.getDefault();
+    DynamicMaker maker = DynamicFactory.getDefault();
     Sample.visitClass(Template.class, maker.getHelper());
     DynamicObject<?> dyObj = maker.newInstance(Sample);
     System.out.println(dyObject.getVar("var1"));
@@ -138,5 +141,3 @@
 函数与常量模式参数尾部的布尔值是确定此变量是否为**常量**，若为true，则此变量不可被改变。
 ****
 - 动态类型声明的变量初始值只在对象被创建时有效，任何时候改变类的变量初始值都不会对已有实例造成影响
-
-您可以参照项目中给出的一些使用[案例](https://github.com/EB-wilson/JavaDynamilizer/tree/master/usage_sample/src/main/java/com/github/ebwilson/sample)和javadoc了解更多关于这个仓库的使用方法。

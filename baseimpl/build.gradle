@@ -28,7 +28,7 @@ publishing {
 }
 
 dependencies {
-  implementation rootProject
+  compileOnly rootProject
 
   annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
 }

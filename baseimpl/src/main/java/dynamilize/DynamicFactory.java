@@ -16,13 +16,14 @@ import java.util.Objects;
  * @author EBwilson
  * @since 1.6*/
 public class DynamicFactory {
-  private PackageAccHandler handler;
-  private AbstractClassGenerator generator;
-  private JavaHandleHelper helper;
+  protected PackageAccHandler handler;
+  protected AbstractClassGenerator generator;
+  protected JavaHandleHelper helper;
 
   private static final DynamicFactory DEFAULT = new DynamicFactory(){{
     setDefaultGenerator();
     setDefaultHelper();
+    setPackageAccHandler(new UnsafePackageAccHandler(generator));
   }};
 
   /**直接获取默认的通用实现实例，该方法获取的动态生成器等价于：
@@ -50,13 +51,13 @@ public class DynamicFactory {
 
     return handler == null? new DynamicMaker(helper) {
       @Override
-      protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces) {
-        return makeClassInfo(baseClass, interfaces).generate(generator);
+      protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces, Class<?>[] aspects) {
+        return makeClassInfo(baseClass, interfaces, aspects).generate(generator);
       }
     }: new DynamicMaker(helper) {
       @Override
-      protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces) {
-        return makeClassInfo(baseClass, interfaces).generate(generator);
+      protected <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces, Class<?>[] aspects) {
+        return makeClassInfo(baseClass, interfaces, aspects).generate(generator);
       }
 
       @Override

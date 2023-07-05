@@ -69,7 +69,10 @@ import java.util.Map;
  *
  * 最后handle方法会将类对象pac1.A$packageAccess$0返回，此时，所有包私有方法都已被提升为protected，其子类对两个包私有方法的重写，在调用test方法时都会生效
  * }</pre>
- * <strong>注意：以上所示的跨包继承同包类的方法重写实际上在java编译器中是不合法的，但在JVM当中此逻辑有效，上述代码仅作逻辑示意</strong>
+ * <strong>注意：<ul>
+ *   <li>以上所示的跨包继承同包类的方法重写实际上在java编译器中是不合法的，但在JVM当中此逻辑有效，上述代码仅作逻辑示意</li>
+ *   <li>由于java包命名空间限制的问题，无法正常从外部加载java开他包名的类型，所以开放包私有方法对包名以“java.”开头的类不生效</li>
+ * </ul></strong>
  *
  * @author EBwilson
  * @since 1.6*/
@@ -98,7 +101,7 @@ public abstract class PackageAccHandler {
   }
 
   protected boolean shouldOpen(Class<?> checking){
-    if (checking == Object.class) return false;
+    if (checking.getPackageName().startsWith("java.")) return false;
 
     for (Method method : checking.getDeclaredMethods()) {
       if ((method.getModifiers() & PAC_PRI_FLAGS) == 0){
@@ -169,8 +172,6 @@ public abstract class PackageAccHandler {
     return (ClassInfo<? extends T>) res;
   }
 
-  /**将目标{@linkplain ClassInfo 类型信息}加载为与基类型同一保护域的对象，根据目标运行平台实现该方法，默认的JDK实现：{@link UnsafePackageAccHandler}
-   *
-   * @see UnsafePackageAccHandler*/
+  /**将目标{@linkplain ClassInfo 类型信息}加载为与基类型同一保护域的对象，根据目标运行平台实现该方法*/
   protected abstract <T> Class<? extends T> loadClass(ClassInfo<?> clazz, Class<T> baseClass);
 }

@@ -39,13 +39,15 @@ public class UnsafePackageAccHandler extends PackageAccHandler{
     this.generator = generator;
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   protected <T> Class<? extends T> loadClass(ClassInfo<?> clazz, Class<T> baseClass) {
-    byte[] bytes = generator.genByteCode(clazz);
+    return defineClass(clazz.name(), generator.genByteCode(clazz), baseClass.getClassLoader());
+  }
 
+  @SuppressWarnings("unchecked")
+  static <T> Class<? extends T> defineClass(String name, byte[] bytes, ClassLoader loader){
     try {
-      return (Class<? extends T>) defineClass.invoke(unsafe, clazz.name(), bytes, 0, bytes.length, baseClass.getClassLoader(), null);
+      return (Class<? extends T>) defineClass.invoke(unsafe, name, bytes, 0, bytes.length, loader, null);
     } catch (IllegalAccessException | InvocationTargetException e) {
       throw new RuntimeException(e);
     }
