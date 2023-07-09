@@ -11,7 +11,10 @@ import dynamilize.classmaker.code.annotation.IAnnotation;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
-import java.lang.reflect.*;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 
 /**类型标识，用于标记/生成一个类对象，通常有以下两种：
@@ -84,6 +87,7 @@ import java.util.*;
  * 对此demoInfo进行生成即可得到等效的类
  * }</pre>
  * 这样的过程是繁琐的，但是也是快速的，跳过编译器产生类文件牺牲了可操作性以换取了类的生成速度，建议将行为描述为模板后再基于模板进行变更以提高开发效率*/
+@SuppressWarnings("rawtypes")
 public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
   public static final LinkedList<IClass<?>> QUEUE = new LinkedList<>();
   public static final HashSet<IClass<?>> EXCLUDE = new HashSet<>();
@@ -110,6 +114,8 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
       Modifier.TRANSIENT | Modifier.VOLATILE;
 
   public static final String PRIMITIVE_REAL = "IFJZBCDV";
+
+  private static final IClass<? extends Throwable>[] EMP_ARR = new IClass[0];
 
   /**对于非现有类型标识，此字段通常情况下为null，在完成类的创建和加载后应正确设置为产生的类
    * <p>作为已有类型的标识符则一定不为空*/
@@ -317,8 +323,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     checkAnnotation(defaultAttributes);
 
     Map<String, Object> map = defaultAttributes;
-    return
-        annotationType != null? (AnnotationType<A>) annotationType : (AnnotationType<A>) (annotationType = new AnnotationType<A>(){
+    return annotationType != null? (AnnotationType<A>) annotationType : (AnnotationType<A>) (annotationType = new AnnotationType<A>(){
           final Map<String,Object> def = new HashMap<>(map);
 
           @Override
@@ -420,25 +425,6 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
     return isPrimitive;
   }
 
-  protected void initMethods(){
-    for(Method method: clazz.getDeclaredMethods()){
-      getMethod(
-          ClassInfo.asType(method.getReturnType()),
-          method.getName(),
-          Arrays.stream(method.getParameterTypes()).map(ClassInfo::asType).toArray(IClass[]::new)
-      );
-    }
-  }
-
-  protected void initFields(){
-    for(Field field: clazz.getDeclaredFields()){
-      getField(
-          ClassInfo.asType(field.getType()),
-          field.getName()
-      );
-    }
-  }
-
   public CodeBlock<Void> getClinitBlock(){
     if(clinit == null){
       clinit = declareCinit();
@@ -474,9 +460,21 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
         }
       }
 
-      MethodInfo<T, R> method = met == null? new MethodInfo<>(this, Modifier.PUBLIC, name, returnType, Parameter.trans(args)):
-          new MethodInfo<>(this, met.getModifiers(), name, returnType, Parameter.asParameter(met.getParameters()));
-      if(met != null) method.initAnnotations();
+      MethodInfo<T, R> method;
+      if (met == null){
+        method = new MethodInfo<>(this, Modifier.PUBLIC, name, returnType, EMP_ARR, Parameter.trans(args));
+      }
+      else {
+        Class<?>[] lis = met.getExceptionTypes();
+        IClass<? extends Throwable>[] thrs = new IClass[lis.length];
+
+        for (int i = 0; i < lis.length; i++) {
+          thrs[i] = (IClass<? extends Throwable>) ClassInfo.asType(lis[i]);
+        }
+
+        method = new MethodInfo<>(this, met.getModifiers(), name, returnType, thrs, Parameter.asParameter(met.getParameters()));
+        method.initAnnotations();
+      }
 
       return method;
     });
@@ -508,9 +506,21 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
         }
       }
 
-      MethodInfo<?, ?> res = cstr == null? new MethodInfo<>(this, Modifier.PUBLIC, INIT, VOID_TYPE, Parameter.trans(args)):
-          new MethodInfo<>(this, cstr.getModifiers(), INIT, VOID_TYPE, Parameter.asParameter(cstr.getParameters()));
-      if(cstr != null) res.initAnnotations();
+      MethodInfo<?, ?> res;
+      if (cstr == null){
+        res = new MethodInfo<>(this, Modifier.PUBLIC, INIT, VOID_TYPE, EMP_ARR, Parameter.trans(args));
+      }
+      else {
+        Class<?>[] lis = cstr.getExceptionTypes();
+        IClass<? extends Throwable>[] thrs = new IClass[lis.length];
+
+        for (int i = 0; i < lis.length; i++) {
+          thrs[i] = (IClass<? extends Throwable>) ClassInfo.asType(lis[i]);
+        }
+
+        res = new MethodInfo<>(this, cstr.getModifiers(), INIT, VOID_TYPE, thrs, Parameter.asParameter(cstr.getParameters()));
+        res.initAnnotations();
+      }
 
       return res;
     });
@@ -615,15 +625,25 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
 
   /**声明一个方法，并返回方法块的声明对象
    *
-   * @param modifiers 方法的修饰符flags标识
-   * @param name 方法的名称
-   * @param returnType 方法的返回值类型
-   * @param parameters 方法参数类型列表
-   *
-   * @throws IllegalArgumentException 若modifiers不合法
-   * @throws IllegalHandleException 若此类型声明已经生成为类或者是类型标识*/
+   * @see ClassInfo#declareMethod(int, String, ClassInfo, ClassInfo[], Parameter[]) */
   @SuppressWarnings("unchecked")
   public <R> CodeBlock<R> declareMethod(int modifiers, String name, ClassInfo<R> returnType, Parameter<?>... parameters){
+    return declareMethod(modifiers, name, returnType, new ClassInfo[0], parameters);
+  }
+
+  /**
+   * 声明一个方法，并返回方法块的声明对象
+   *
+   * @param modifiers  方法的修饰符flags标识
+   * @param name       方法的名称
+   * @param returnType 方法的返回值类型
+   * @param parameters 方法参数类型列表
+   * @param throwsList 方法的抛出异常列表
+   * @throws IllegalArgumentException 若modifiers不合法
+   * @throws IllegalHandleException   若此类型声明已经生成为类或者是类型标识
+   */
+  @SuppressWarnings("unchecked")
+  public <R> CodeBlock<R> declareMethod(int modifiers, String name, ClassInfo<R> returnType, ClassInfo<? extends Throwable>[] throwsList, Parameter<?>... parameters){
     checkGen();
     checkModifiers(modifiers, METHOD_ACCESS_MODIFIERS);
 
@@ -632,7 +652,7 @@ public class ClassInfo<T> extends AnnotatedMember implements IClass<T>{
 
     MethodInfo<T, R> method = (MethodInfo<T, R>) methodMap.computeIfAbsent(
         pack(name, Arrays.stream(parameters).map(Parameter::getType).toArray(IClass[]::new)),
-        e -> new MethodInfo<>(this, modifiers, name, returnType, parameters));
+        e -> new MethodInfo<>(this, modifiers, name, returnType, throwsList, parameters));
     elements.add(method);
 
     return method.block();

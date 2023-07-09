@@ -189,7 +189,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     );
   }
 
-  public final <Ret> void invokeStatic(IMethod<?, Ret> method, ILocal<Ret> returnTo, ILocal<?>... args){
+  public final <Ret> void invokeStatic(IMethod<?, Ret> method, ILocal<? super Ret> returnTo, ILocal<?>... args){
     codes().add(
         new Invoke<>(null, false, method, returnTo, args)
     );
@@ -201,7 +201,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     );
   }
 
-  public final <Ret> void invokeSuper(ILocal<?> target, IMethod<?, Ret> method, ILocal<Ret> returnTo, ILocal<?>... args){
+  public final <Ret> void invokeSuper(ILocal<?> target, IMethod<?, Ret> method, ILocal<? super Ret> returnTo, ILocal<?>... args){
     codes().add(
         new Invoke<>(target, true, method, returnTo, args)
     );
@@ -543,13 +543,13 @@ public class CodeBlock<R> implements ICodeBlock<R>{
 
   protected static class Invoke<R> implements IInvoke<R>{
     IMethod<?, R> method;
-    ILocal<? extends R> returnTo;
+    ILocal<? super R> returnTo;
     List<ILocal<?>> args;
     ILocal<?> target;
 
     boolean callSuper;
 
-    public Invoke(ILocal<?> target, boolean callSuper, IMethod<?, R> method, ILocal<? extends R> returnTo, ILocal<?>... args){
+    public Invoke(ILocal<?> target, boolean callSuper, IMethod<?, R> method, ILocal<? super R> returnTo, ILocal<?>... args){
       this.method = method;
       this.returnTo = method.returnType() != ClassInfo.VOID_TYPE? returnTo: null;
       this.target = target;
@@ -576,7 +576,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     }
 
     @Override
-    public ILocal<? extends R> returnTo(){
+    public ILocal<? super R> returnTo(){
       return returnTo;
     }
 

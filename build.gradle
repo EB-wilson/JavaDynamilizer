@@ -21,9 +21,9 @@ repositories {
 
 dependencies {
   implementation 'org.ow2.asm:asm:9.3'
-    testImplementation project(path: ':baseimpl')
+  apiElements 'org.ow2.asm:asm:9.3'
 
-    annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
+  annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
 }
 
 publishing {

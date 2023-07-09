@@ -67,7 +67,7 @@ public abstract class DynamicMaker {
   public static final ClassInfo<Integer> INTEGER_CLASS_TYPE = asType(Integer.class);
   public static final ClassInfo<HashMap> HASH_MAP_TYPE = asType(HashMap.class);
   public static final ClassInfo<IVariable> VAR_TYPE = ClassInfo.asType(IVariable.class);
-  public static final ClassInfo<IllegalStateException> STATE_EXCEPTION_TYPE = asType(IllegalStateException.class);
+  public static final ClassInfo<NoSuchMethodException> NOSUCH_METHOD = asType(NoSuchMethodException.class);
   public static final ClassInfo<ArgumentList> ARG_LIST_TYPE = asType(ArgumentList.class);
   public static final ClassInfo<Function.SuperGetFunction> SUPER_GET_FUNC_TYPE = ClassInfo.asType(Function.SuperGetFunction.class);
   public static final ClassInfo<IFunctionEntry> FUNC_ENTRY_TYPE = ClassInfo.asType(IFunctionEntry.class);
@@ -94,6 +94,7 @@ public abstract class DynamicMaker {
   private static final Class[] EMPTY_CLASSES = new Class[0];
   public static final ILocal[] LOCALS_EMP = new ILocal[0];
   public static final HashSet<FunctionType> EMP_SET = new HashSet<>();
+  public static final HashMap<String, Object> EMP_MAP = new HashMap<>();
   public static final String ANY = "ANY";
   private final JavaHandleHelper helper;
 
@@ -269,13 +270,18 @@ public abstract class DynamicMaker {
       while (curr != null) {
         if (curr.getAnnotation(DynamicType.class) != null) {
           for (Method method : curr.getDeclaredMethods()) {
-            CallSuperMethod callSuper = method.getAnnotation(CallSuperMethod.class);
+            DynamicMethod callSuper = method.getAnnotation(DynamicMethod.class);
             if (callSuper != null) {
-              String name = callSuper.srcMethod();
-              String signature = FunctionType.signature(name, method.getParameterTypes());
+              String signature = FunctionType.signature(method.getName(), method.getParameterTypes());
               res.setFunction(
-                  name,
-                  (self, args) -> ((SuperInvoker) self).invokeSuper(signature, args.args()),
+                  method.getName(),
+                  (self, args) -> {
+                    try {
+                      return ((SuperInvoker) self).invokeSuper(signature, args.args());
+                    } catch (NoSuchMethodException e) {
+                      throw new RuntimeException(e);
+                    }
+                  },
                   method.getParameterTypes()
               );
             }
@@ -416,8 +422,7 @@ public abstract class DynamicMaker {
     ILocal<Class> tempClass = clinit.local(CLASS_TYPE);
     ILocal<Class[]> tempClasses = clinit.local(CLASS_TYPE.asArray());
 
-
-    HashMap<Method, Integer> callSuperCaseMap = new HashMap<>();
+    HashMap<IMethod<?, ?>, Integer> callSuperCaseMap = new HashMap<>();
 
     // public <init>(*parameters*){
     //   super(*parameters*);
@@ -444,7 +449,7 @@ public abstract class DynamicMaker {
     Class<?> curr = baseClass;
     while(curr != null){
       for (Method method : curr.getDeclaredMethods()) {
-        filterMethod(OVERRIDES, FINALS, method);
+        filterMethod(method);
       }
 
       curr = curr.getSuperclass();
@@ -459,7 +464,7 @@ public abstract class DynamicMaker {
     for (Class<?> interf: lis) {
       ClassInfo<?> typeClass = asType(interf);
       for (Method method : interf.getDeclaredMethods()) {
-        if (!filterMethod(OVERRIDES, FINALS, method)) continue;
+        if (!filterMethod(method)) continue;
 
         String methodName = method.getName();
         ClassInfo<?> returnType = asType(method.getReturnType());
@@ -477,7 +482,7 @@ public abstract class DynamicMaker {
           continue;
         }
 
-        callSuperCaseMap.put(method, callSuperCaseMap.size());
+        if (superMethod != null) callSuperCaseMap.put(superMethod, callSuperCaseMap.size());
 
         String typeF = methodName + "$" + FunctionType.typeNameHash(method.getParameterTypes());
         FieldInfo<FunctionType> funType = classInfo.declareField(
@@ -520,7 +525,7 @@ public abstract class DynamicMaker {
           clinit.assign(null, tempType, funType);
 
           clinit.loadConstant(tempSign, signature);
-          clinit.loadConstant(tempInt, callSuperCaseMap.get(method));
+          clinit.loadConstant(tempInt, callSuperCaseMap.get(superMethod));
 
           clinit.invoke(
               null,
@@ -538,6 +543,7 @@ public abstract class DynamicMaker {
           );
         }
 
+        // @DynamicMethod
         // public *returnType* *name*(*parameters*){
         //   *[return]* this.invokeFunc(FUNCTION_TYPE$*signature* ,"*name*", parameters);
         // }
@@ -548,6 +554,12 @@ public abstract class DynamicMaker {
               returnType,
               Parameter.asParameter(method.getParameters())
           );
+          AnnotationDef<DynamicMethod> anno = new AnnotationDef<>(
+              ClassInfo.asType(DynamicMethod.class).asAnnotation(EMP_MAP),
+              code.owner(),
+              EMP_MAP
+          );
+          code.owner().addAnnotation(anno);
 
           ILocal<FunctionType> type = code.local(FUNCTION_TYPE_TYPE);
           ILocal<String> met = code.local(STRING_TYPE);
@@ -580,56 +592,6 @@ public abstract class DynamicMaker {
             code.invoke(null, RECYCLE_LIST, null, argList);
           }
         }
-
-        // private final *returnType* *name*$super(*parameters*){
-        //   *[return]* super.*name*(*parameters*);
-        // }
-        if (superMethod != null) {
-          if (Modifier.isInterface(superMethod.owner().modifiers())) {
-            IClass<?> c = classInfo.superClass();
-            boolean found = false;
-            t:
-            while (c != null && c != OBJECT_TYPE) {
-              for (IClass<?> in : c.interfaces()) {
-                if (in == superMethod.owner()) {
-                  found = true;
-                  break t;
-                }
-              }
-
-              c = c.superClass();
-            }
-
-            if (found) {
-              superMethod = new MethodInfo<>(
-                  c,
-                  Modifier.PUBLIC,
-                  superMethod.name(),
-                  superMethod.returnType(),
-                  superMethod.parameters().toArray(new Parameter[0])
-              );
-            }
-          }
-
-          CodeBlock<?> code = classInfo.declareMethod(
-              Modifier.PRIVATE | Modifier.FINAL,
-              methodName + CALLSUPER,
-              returnType,
-              Parameter.asParameter(method.getParameters())
-          );
-
-          if (returnType != VOID_TYPE) {
-            ILocal res = code.local(returnType);
-            code.invokeSuper(code.getThis(), superMethod, res, code.getParamList().toArray(LOCALS_EMP));
-            code.returnValue(res);
-          }
-          else code.invokeSuper(code.getThis(), superMethod, null, code.getParamList().toArray(LOCALS_EMP));
-
-          AnnotationType<CallSuperMethod> callSuper = AnnotationType.asAnnotationType(CallSuperMethod.class);
-          HashMap<String, Object> map = new HashMap<>();
-          map.put("srcMethod", methodName);
-          callSuper.annotateTo(code.owner(), map);
-        }
       }
     }
 
@@ -639,7 +601,7 @@ public abstract class DynamicMaker {
     //   if(ind == null) return super.invokeSuper(signature, args)
     //   switch(ind){
     //     ...
-    //     case *index*: *method*$super(args[0], args[1],...); break;
+    //     case *index*: super.*method*(args[0], args[1],...); break;
     //     ...
     //   }
     // }
@@ -648,6 +610,9 @@ public abstract class DynamicMaker {
           Modifier.PUBLIC,
           "invokeSuper",
           OBJECT_TYPE,
+          new ClassInfo[]{
+              ClassInfo.asType(NoSuchMethodException.class)
+          },
           Parameter.trans(
               STRING_TYPE,
               OBJECT_TYPE.asArray()
@@ -807,7 +772,7 @@ public abstract class DynamicMaker {
     ILocal<Class> tempClass = clinit.local(CLASS_TYPE);
     ILocal<Class[]> tempClasses = clinit.local(CLASS_TYPE.asArray());
 
-    HashMap<Method, Integer> callSuperCaseMap = new HashMap<>();
+    HashMap<IMethod<?, ?>, Integer> callSuperCaseMap = new HashMap<>();
 
     // public <init>(DynamicClass $dyC$, DataPool $datP$, DataPool.ReadOnlyPool $basePool$, *parameters*){
     //   this.$dynamic_type$ = $dyC$;
@@ -890,7 +855,7 @@ public abstract class DynamicMaker {
 
       ClassInfo<?> typeClass = asType(curr);
       for (Method method : curr.getDeclaredMethods()) {
-        if (!filterMethod(OVERRIDES, FINALS, method)) continue;
+        if (!filterMethod(method)) continue;
 
         String methodName = method.getName();
         ClassInfo<?> returnType = asType(method.getReturnType());
@@ -908,7 +873,7 @@ public abstract class DynamicMaker {
           continue;
         }
 
-        callSuperCaseMap.put(method, callSuperCaseMap.size());
+        if(superMethod != null) callSuperCaseMap.put(superMethod, callSuperCaseMap.size());
 
         String typeF = methodName + "$" + FunctionType.typeNameHash(method.getParameterTypes());
         FieldInfo<FunctionType> funType = classInfo.declareField(
@@ -951,7 +916,7 @@ public abstract class DynamicMaker {
           clinit.assign(null, tempType, funType);
 
           clinit.loadConstant(tempSign, signature);
-          clinit.loadConstant(tempInt, callSuperCaseMap.get(method));
+          clinit.loadConstant(tempInt, callSuperCaseMap.get(superMethod));
 
           clinit.invoke(
               null,
@@ -979,6 +944,12 @@ public abstract class DynamicMaker {
               returnType,
               Parameter.asParameter(method.getParameters())
           );
+          AnnotationDef<DynamicMethod> anno = new AnnotationDef<>(
+              ClassInfo.asType(DynamicMethod.class).asAnnotation(EMP_MAP),
+              code.owner(),
+              EMP_MAP
+          );
+          code.owner().addAnnotation(anno);
 
           ILocal<FunctionType> type = code.local(FUNCTION_TYPE_TYPE);
           ILocal<String> met = code.local(STRING_TYPE);
@@ -1011,56 +982,6 @@ public abstract class DynamicMaker {
             code.invoke(null, RECYCLE_LIST, null, argList);
           }
         }
-
-        // private final *returnType* *name*$super(*parameters*){
-        //   *[return]* super.*name*(*parameters*);
-        // }
-        if (superMethod != null) {
-          if (Modifier.isInterface(superMethod.owner().modifiers())) {
-            IClass<?> c = classInfo.superClass();
-            boolean found = false;
-            t:
-            while (c != null && c != OBJECT_TYPE) {
-              for (IClass<?> interf : c.interfaces()) {
-                if (interf == superMethod.owner()) {
-                  found = true;
-                  break t;
-                }
-              }
-
-              c = c.superClass();
-            }
-
-            if (found) {
-              superMethod = new MethodInfo<>(
-                  c,
-                  Modifier.PUBLIC,
-                  superMethod.name(),
-                  superMethod.returnType(),
-                  superMethod.parameters().toArray(new Parameter[0])
-              );
-            }
-          }
-
-          CodeBlock<?> code = classInfo.declareMethod(
-              Modifier.PRIVATE | Modifier.FINAL,
-              methodName + CALLSUPER,
-              returnType,
-              Parameter.asParameter(method.getParameters())
-          );
-
-          if (returnType != VOID_TYPE) {
-            ILocal res = code.local(returnType);
-            code.invokeSuper(code.getThis(), superMethod, res, code.getParamList().toArray(LOCALS_EMP));
-            code.returnValue(res);
-          }
-          else code.invokeSuper(code.getThis(), superMethod, null, code.getParamList().toArray(LOCALS_EMP));
-
-          AnnotationType<CallSuperMethod> callSuper = AnnotationType.asAnnotationType(CallSuperMethod.class);
-          HashMap<String, Object> map = new HashMap<>();
-          map.put("srcMethod", methodName);
-          callSuper.annotateTo(code.owner(), map);
-        }
       }
 
       if (!curr.isInterface()) {
@@ -1072,7 +993,7 @@ public abstract class DynamicMaker {
     // public Object invokeSuper(String signature, Object... args);{
     //   switch(methodIndex.get(signature)){
     //     ...
-    //     case *index*: *method*$super(args[0], args[1],...); break;
+    //     case *index*: super.*method*(args[0], args[1],...); break;
     //     ...
     //   }
     // }
@@ -1081,6 +1002,9 @@ public abstract class DynamicMaker {
           Modifier.PUBLIC,
           "invokeSuper",
           OBJECT_TYPE,
+          new ClassInfo[]{
+              ClassInfo.asType(NoSuchMethodException.class)
+          },
           Parameter.trans(
               STRING_TYPE,
               OBJECT_TYPE.asArray()
@@ -1089,8 +1013,12 @@ public abstract class DynamicMaker {
 
       ILocal<Integer> index = code.local(INT_TYPE);
       ILocal<Integer> indexWrap = code.local(INTEGER_CLASS_TYPE);
+      ILocal<Object> nullBit = code.local(OBJECT_TYPE);
+      code.loadConstant(nullBit, null);
       ILocal<Object> obj = code.local(OBJECT_TYPE);
       ILocal<HashMap> caseMap = code.local(HASH_MAP_TYPE);
+
+      Label end = code.label();
       code.assign(null, methodIndex, caseMap);
       code.invoke(
           caseMap,
@@ -1098,14 +1026,13 @@ public abstract class DynamicMaker {
           obj,
           code.getRealParam(0)
       );
+      code.compare(obj, ICompare.Comparison.EQUAL, nullBit, end);
       code.cast(obj, indexWrap);
       code.invoke(
           indexWrap,
           INTEGER_CLASS_TYPE.getMethod(INT_TYPE, "intValue"),
           index
       );
-
-      Label end = code.label();
 
       ISwitch<Integer> iSwitch = code.switchDef(index, end);
 
@@ -1281,10 +1208,10 @@ public abstract class DynamicMaker {
     return classInfo;
   }
 
-  private static boolean filterMethod(Map<String, Set<FunctionType>> overrideMethods, Map<String, Set<FunctionType>> finalMethods, Method method) {
+  private static boolean filterMethod(Method method) {
     //对于已经被声明为final的方法将被添加到排除列表
     if (Modifier.isFinal(method.getModifiers())) {
-      finalMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
+      DynamicMaker.FINALS.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
       return false;
     }
 
@@ -1292,48 +1219,70 @@ public abstract class DynamicMaker {
     if (Modifier.isStatic(method.getModifiers())) return false;
     if ((method.getModifiers() & (Modifier.PUBLIC | Modifier.PROTECTED)) == 0) return false;
 
-    return !finalMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).contains(FunctionType.from(method))
-        && overrideMethods.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
+    return !DynamicMaker.FINALS.computeIfAbsent(method.getName(), e -> new HashSet<>()).contains(FunctionType.from(method))
+        && DynamicMaker.OVERRIDES.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
   }
 
-  @SuppressWarnings("unchecked")
-  protected void makeSwitch(HashMap<Method, Integer> callSuperCaseMap, CodeBlock<Object> code, ILocal<Object> obj, Label end, ISwitch<Integer> iSwitch, ILocal<Object[]> args) {
+  protected void makeSwitch(HashMap<IMethod<?, ?>, Integer> callSuperCaseMap, CodeBlock<Object> code, ILocal<Object> obj, Label end, ISwitch<Integer> iSwitch, ILocal<Object[]> args) {
     ILocal<Integer> tmpInd = code.local(INT_TYPE);
 
-    for (Map.Entry<Method, Integer> entry : callSuperCaseMap.entrySet()) {
+    for (Map.Entry<IMethod<?, ?>, Integer> entry : callSuperCaseMap.entrySet()) {
       Label l = code.label();
       code.markLabel(l);
 
       iSwitch.addCase(entry.getValue(), l);
 
-      Method m = entry.getKey();
-      IMethod method = code.owner().owner().getMethod(
-          asType(m.getReturnType()),
-          m.getName() + CALLSUPER,
-          Arrays.stream(m.getParameterTypes()).map(ClassInfo::asType).toArray(IClass[]::new)
-      );
-      ILocal<?>[] params = new ILocal[method.parameters().size()];
+      IMethod<?, ?> superMethod = entry.getKey();
+      if (Modifier.isInterface(superMethod.owner().modifiers())) {
+        IClass<?> c = code.owner().owner().superClass();
+        boolean found = false;
+        t:
+        while (c != null && c != OBJECT_TYPE) {
+          for (IClass<?> interf : c.interfaces()) {
+            if (interf == superMethod.owner()) {
+              found = true;
+              break t;
+            }
+          }
+
+          c = c.superClass();
+        }
+
+        if (found) {
+          c.getMethod(
+              superMethod.returnType(),
+              superMethod.name(),
+              superMethod.parameters().stream().map(Parameter::getType).toArray(IClass[]::new)
+          );
+        }
+      }
+
+      ILocal<?>[] params = new ILocal[superMethod.parameters().size()];
       for (int in = 0; in < params.length; in++) {
-        params[in] = code.local(((Parameter) method.parameters().get(in)).getType());
+        params[in] = code.local((superMethod.parameters().get(in)).getType());
         code.loadConstant(tmpInd, in);
         code.arrayGet(args, tmpInd, obj);
         code.cast(obj, params[in]);
       }
 
-      code.invoke(code.getThis(), method, obj, params);
-      if (method.returnType() == VOID_TYPE) {
-        code.loadConstant(obj, null);
+      if (superMethod.returnType() != VOID_TYPE) {
+        code.invokeSuper(code.getThis(), superMethod, obj, params);
+        code.returnValue(obj);
       }
-      code.returnValue(obj);
+      else {
+        code.invokeSuper(code.getThis(), superMethod, null, params);
+        code.loadConstant(obj, null);
+        code.returnValue(obj);
+      }
     }
-    code.markLabel(end);
 
+    code.markLabel(end);
     ILocal<String> message = code.local(STRING_TYPE);
-    ILocal<IllegalStateException> exception = code.local(STATE_EXCEPTION_TYPE);
+    ILocal<NoSuchMethodException> exception = code.local(NOSUCH_METHOD);
     code.loadConstant(message, "no such method signature with ");
     code.operate(message, IOperate.OPCode.ADD, code.getRealParam(0), message);
     code.newInstance(
-        STATE_EXCEPTION_TYPE.getConstructor(STRING_TYPE),
+        NOSUCH_METHOD.getConstructor(STRING_TYPE),
         exception,
         message
     );
@@ -1371,18 +1320,14 @@ public abstract class DynamicMaker {
   }
 
   /**
-   * 超类方法标识，带有一个属性描述了此方法所引用的超类方法名称，所有生成的对super方法入口都会具有此注解。
+   * 动态方法标识，所有被动态委托的方法会携带此注解，用于标识动态类行为的基础入口点
    */
   @Target(ElementType.METHOD)
   @Retention(RetentionPolicy.RUNTIME)
-  @interface CallSuperMethod {
-    /**
-     * 方法所调用的超类源方法，将提供给初级数据池标识对超类方法的引用
-     */
-    String srcMethod();
+  @interface DynamicMethod {
   }
 
   public interface SuperInvoker {
-    Object invokeSuper(String signature, Object... args);
+    Object invokeSuper(String signature, Object... args) throws NoSuchMethodException;
   }
 }

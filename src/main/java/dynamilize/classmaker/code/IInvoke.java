@@ -21,7 +21,7 @@ public interface IInvoke<R> extends Element{
 
   List<ILocal<?>> args();
 
-  ILocal<? extends R> returnTo();
+  ILocal<? super R> returnTo();
 
   boolean callSuper();
 }

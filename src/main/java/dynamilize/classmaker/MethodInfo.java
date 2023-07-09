@@ -20,15 +20,23 @@ public class MethodInfo<S, R> extends AnnotatedMember implements IMethod<S, R>{
 
   IClass<R> returnType;
   List<Parameter<?>> parameter;
+  List<IClass<? extends Throwable>> throwsList;
 
   boolean initialized;
 
-  public MethodInfo(IClass<S> owner, int modifiers, String name, IClass<R> returnType, Parameter<?>... params){
+  public MethodInfo(IClass<S> owner, int modifiers, String name, IClass<R> returnType, IClass<? extends Throwable>[] throwsList, Parameter<?>... params){
     super(name);
+    IClass<Throwable> thr = ClassInfo.asType(Throwable.class);
+    for (IClass<? extends Throwable> iClass : throwsList) {
+      if (!thr.isAssignableFrom(iClass))
+        throw new IllegalHandleException("throws classes must be extend by java.lang.Throwable, but find " + iClass);
+    }
+
     setModifiers(modifiers);
     this.block = (modifiers & Modifier.ABSTRACT) != 0? null: new CodeBlock<>(this);
     this.owner = owner;
     this.returnType = returnType;
+    this.throwsList = Arrays.asList(throwsList);
     this.parameter = Arrays.asList(params);
 
     Arrays.stream(params).forEach(e -> e.setOwner(this));
@@ -39,6 +47,11 @@ public class MethodInfo<S, R> extends AnnotatedMember implements IMethod<S, R>{
   @Override
   public List<Parameter<?>> parameters(){
     return parameter;
+  }
+
+  @Override
+  public List<IClass<? extends Throwable>> throwTypes() {
+    return throwsList;
   }
 
   @Override

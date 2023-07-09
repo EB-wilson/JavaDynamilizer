@@ -4,7 +4,13 @@ import dynamilize.*;
 import dynamilize.annotation.AspectInterface;
 import dynamilize.annotation.Super;
 import dynamilize.annotation.This;
+import dynamilize.classmaker.ASMGenerator;
+import dynamilize.classmaker.AbstractClassGenerator;
+import dynamilize.classmaker.BaseClassLoader;
+import dynamilize.classmaker.ClassInfo;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 
@@ -13,7 +19,28 @@ import java.util.HashMap;
 public class BaseUse {
   @SuppressWarnings("unchecked")
   public static void main(String[] args) {
-    DynamicMaker maker = DynamicFactory.getDefault();//获取默认动态工厂
+    AbstractClassGenerator gen = new ASMGenerator(new BaseClassLoader(BaseUse.class.getClassLoader()), 52){
+      @Override
+      public byte[] genByteCode(ClassInfo<?> classInfo) {
+        byte[] res = super.genByteCode(classInfo);
+
+        try(FileOutputStream out = new FileOutputStream("tmp.class")){
+          out.write(res);
+          out.flush();
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+
+        return res;
+      }
+    };
+    DynamicMaker maker = new DynamicFactory()
+        .setDefaultHelper()
+        .setGenerator(gen)
+        .setPackageAccHandler(new UnsafePackageAccHandler(gen))
+        .getMaker();
+
+    //DynamicMaker maker = DynamicFactory.getDefault();//获取默认动态工厂
     DynamicClass Sample = DynamicClass.get("Sample");//创建动态类型，这是必要的，无论动态类是否有行为，get方法会返回给定名称的动态类型，如果类型尚不存在则会创建一个新的动态类型
 
     /*===============================

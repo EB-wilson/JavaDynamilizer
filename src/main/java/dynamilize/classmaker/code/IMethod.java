@@ -25,6 +25,8 @@ public interface IMethod<S, R> extends Element, AnnotatedElement{
 
   List<Parameter<?>> parameters();
 
+  List<IClass<? extends Throwable>> throwTypes();
+
   IClass<S> owner();
 
   IClass<R> returnType();

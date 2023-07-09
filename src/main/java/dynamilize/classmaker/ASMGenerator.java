@@ -85,8 +85,6 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     }
 
     public void ref(int codeOff, String... locals){
-      if(locals.length == 0) return;
-
       for(String local: locals){
         ref(codeOff, local);
       }
@@ -100,8 +98,6 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     }
 
     public void assign(int codeOff, String... locals){
-      if(locals.length == 0) return;
-
       for(String local: locals){
         assign(codeOff, local);
       }
@@ -337,12 +333,17 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitMethod(IMethod<?, ?> method){
+    String[] thrs = new String[method.throwTypes().size()];
+    for (int i = 0; i < method.throwTypes().size(); i++) {
+      thrs[i] = method.throwTypes().get(i).internalName();
+    }
+
     methodVisitor = writer.visitMethod(
         method.modifiers(),
         method.name(),
         method.typeDescription(),
         null,
-        null
+        thrs
     );
     visitAnnotation(method);
 

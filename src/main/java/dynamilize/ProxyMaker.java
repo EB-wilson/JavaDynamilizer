@@ -110,13 +110,12 @@ public abstract class ProxyMaker{
 
       Class<?> dyBase = maker.getDynamicBase(base, interfaces, aspects);
       for(Method method: dyBase.getDeclaredMethods()){
-        DynamicMaker.CallSuperMethod callSuper;
-        if((callSuper = method.getAnnotation(DynamicMaker.CallSuperMethod.class)) != null && filterMethods(callSuper.srcMethod(), method.getParameterTypes())){
+        if(method.getAnnotation(DynamicMaker.DynamicMethod.class) != null && filterMethods(method.getName(), method.getParameterTypes())){
           FunctionType type = FunctionType.from(method);
           dyc.setFunction(
-              callSuper.srcMethod(),
+              method.getName(),
               (s, su, a) -> {
-                FunctionMarker caller = FunctionMarker.make(su.getFunc(callSuper.srcMethod(), type));
+                FunctionMarker caller = FunctionMarker.make(su.getFunc(method.getName(), type));
                 try{
                   Object res = invoke(s, caller, a);
                   caller.recycle();
@@ -138,6 +137,8 @@ public abstract class ProxyMaker{
     return dyc;
   }
 
+  /**@deprecated 请使用切面接口限定动态委托范围*/
+  @Deprecated
   protected boolean filterMethods(String methodName, Class<?>... argTypes) {
     return true;
   }
