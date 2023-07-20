@@ -8,7 +8,7 @@
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.EB-wilson.UniverseCore/annotations/1.8.1/44a4aa357469a08bf182a62ae01bb7323e8caa26/annotations-1.8.1.jar" />
         </processorPath>
         <module name="JavaDynamilizer.main" />
-        <module name="JavaDynamilizer.baseimpl.main" />
+        <module name="com.github.EB-wilson.JavaDynamilizer.baseimpl.main" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel target="1.8">

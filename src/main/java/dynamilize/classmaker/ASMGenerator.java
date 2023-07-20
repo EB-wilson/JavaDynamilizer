@@ -51,192 +51,6 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     map.put('F', D2F);
   }
 
-  BlockContext context;
-  int codeCount;
-
-  protected static class BlockContext{
-    int counter;
-
-    final HashSet<String> params = new HashSet<>();
-
-    final Map<Integer, String>[] refList;
-    final Map<Integer, String>[] assignList;
-
-    final HashSet<Integer> codeInStack = new HashSet<>();
-
-    final HashSet<String> shouldInStack = new HashSet<>();
-    
-    public BlockContext(int codeCount){
-      refList = new Map[codeCount];
-      assignList = new Map[codeCount];
-    }
-
-    public void initArgs(ILocal<?>... args){
-      for(ILocal<?> arg: args){
-        params.add(arg.name());
-      }
-    }
-
-    public void ref(int codeOff, String local){
-      if(refList[codeOff] == null) refList[codeOff] = new TreeMap<>();
-      refList[codeOff].put(counter, local);
-
-      counter++;
-    }
-
-    public void ref(int codeOff, String... locals){
-      for(String local: locals){
-        ref(codeOff, local);
-      }
-    }
-
-    public void assign(int codeOff, String local){
-      if(assignList[codeOff] == null) assignList[codeOff] = new TreeMap<>();
-      assignList[codeOff].put(counter, local);
-
-      counter++;
-    }
-
-    public void assign(int codeOff, String... locals){
-      for(String local: locals){
-        assign(codeOff, local);
-      }
-    }
-
-    public void init(){
-
-    }
-
-    public boolean inStackCode(int codeOff){
-      return codeInStack.contains(codeOff);
-    }
-
-    public boolean shouldInStack(String local){
-      return shouldInStack.contains(local);
-    }
-  }
-
-  protected final DefaultReadVisitor contextStatistic = new DefaultReadVisitor(){
-    int codeCount;
-    
-    @Override
-    public void visitCodeBlock(ICodeBlock<?> codeBlock){
-      context = new BlockContext(codeBlock.codes().size());
-      context.initArgs(codeBlock.getParamAll().toArray(new ILocal[0]));
-      codeCount = 0;
-
-      for(Element element: codeBlock.codes()){
-        element.accept(this);
-        codeCount++;
-      }
-    }
-
-    @Override
-    public void visitPutField(IPutField<?, ?> putField){
-      if(!Modifier.isStatic(putField.target().modifiers())) context.ref(codeCount, putField.inst().name());
-      context.ref(codeCount, putField.source().name());
-    }
-
-    @Override
-    public void visitGetField(IGetField<?, ?> getField){
-      if(!Modifier.isStatic(getField.source().modifiers())) context.ref(codeCount, getField.inst().name());
-      context.assign(codeCount, getField.target().name());
-    }
-
-    @Override
-    public void visitLocalSet(ILocalAssign<?, ?> localSet){
-      context.ref(codeCount, localSet.source().name());
-      context.assign(codeCount, localSet.target().name());
-    }
-
-    @Override
-    public void visitArrayGet(IArrayGet<?> arrayGet){
-      context.ref(codeCount, arrayGet.array().name(), arrayGet.index().name());
-      context.assign(codeCount, arrayGet.getTo().name());
-    }
-
-    @Override
-    public void visitArrayPut(IArrayPut<?> arrayPut){
-      context.ref(codeCount, arrayPut.array().name(), arrayPut.index().name(), arrayPut.value().name());
-    }
-
-    @Override
-    public void visitCast(ICast cast){
-      context.ref(codeCount, cast.source().name());
-      context.assign(codeCount, cast.target().name());
-    }
-
-    @Override
-    public void visitCompare(ICompare<?> compare){
-      context.ref(codeCount, compare.leftNumber().name(), compare.rightNumber().name());
-    }
-
-    @Override
-    public void visitCondition(ICondition condition){
-      context.ref(codeCount, condition.condition().name());
-    }
-
-    @Override
-    public void visitOperate(IOperate<?> operate){
-      context.ref(codeCount, operate.leftOpNumber().name(), operate.rightOpNumber().name());
-      context.assign(codeCount, operate.resultTo().name());
-    }
-
-    @Override
-    public void visitOddOperate(IOddOperate<?> operate){
-      context.ref(codeCount, operate.operateNumber().name());
-      context.assign(codeCount, operate.resultTo().name());
-    }
-
-    @Override
-    public void visitConstant(ILoadConstant<?> loadConstant){
-      context.assign(codeCount, loadConstant.constTo().name());
-    }
-
-    @Override
-    public void visitInstanceOf(IInstanceOf instanceOf){
-      context.ref(codeCount, instanceOf.target().name());
-      context.assign(codeCount, instanceOf.result().name());
-    }
-
-    @Override
-    public void visitInvoke(IInvoke<?> invoke){
-      List<ILocal<?>> args = new ArrayList<>();
-      if(!Modifier.isStatic(invoke.method().modifiers())) args.add(invoke.target());
-      args.addAll(invoke.args());
-
-      context.ref(codeCount, args.stream().map(ILocal::name).toArray(String[]::new));
-      if(invoke.returnTo() != null) context.assign(codeCount, invoke.returnTo().name());
-    }
-
-    @Override
-    public void visitNewInstance(INewInstance<?> newInstance){
-      context.ref(codeCount, newInstance.params().stream().map(ILocal::name).toArray(String[]::new));
-      context.assign(codeCount, newInstance.instanceTo().name());
-    }
-
-    @Override
-    public void visitNewArray(INewArray<?> newArray){
-      context.ref(codeCount, newArray.arrayLength().stream().map(ILocal::name).toArray(String[]::new));
-      context.assign(codeCount, newArray.resultTo().name());
-    }
-
-    @Override
-    public void visitReturn(IReturn<?> iReturn){
-      if(iReturn.returnValue() != null) context.ref(codeCount, iReturn.returnValue().name());
-    }
-
-    @Override
-    public void visitSwitch(ISwitch<?> zwitch){
-      context.ref(codeCount, zwitch.target().name());
-    }
-
-    @Override
-    public void visitThrow(IThrow<?> thr){
-      context.ref(codeCount, thr.thr().name());
-    }
-  };
-
   protected final ByteClassLoader classLoader;
   protected final int codeVersion;
 
@@ -323,7 +137,6 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitLocal(ILocal<?> local){
-    if(context.inStackCode(codeCount)) return;
     super.visitLocal(local);
     localIndex.put(local.name(), localIndex.size());
     if(local.type() == LONG_TYPE || local.type() == DOUBLE_TYPE){
@@ -364,8 +177,6 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         }
       }
 
-      contextStatistic.visitMethod(method);
-      context.init();
       super.visitMethod(method);
 
       Label endLine = new Label();
@@ -426,10 +237,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     //}
 
     currCodeBlock = block;
-    codeCount = 0;
     for(Element element: block.codes()){
       element.accept(this);
-      codeCount++;
     }
 
     Element end = block.codes().isEmpty()? null: block.codes().get(block.codes().size() - 1);
@@ -474,13 +283,13 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         INVOKEVIRTUAL;
     
     if(!Modifier.isStatic(invoke.method().modifiers())){
-      if(!context.inStackCode(codeCount)){
+      if(!(invoke.target() instanceof CodeBlock.StackElem)){
         methodVisitor.visitVarInsn(ALOAD, localIndex.get(invoke.target().name()));
       }
     }
 
-    for(ILocal<?> arg: invoke.args()){
-      if(!context.inStackCode(codeCount)){
+    if(!invoke.args().isEmpty() && !(invoke.args().get(0) instanceof CodeBlock.StackElem)){
+     for(ILocal<?> arg: invoke.args()){
         methodVisitor.visitVarInsn(
             getLoadType(arg.type()),
             localIndex.get(arg.name())
@@ -506,8 +315,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else{
       castAssign(type, invoke.returnTo().type());
 
-      if(context.inStackCode(codeCount)) return;
-
+      if(invoke.returnTo() instanceof CodeBlock.StackElem) return;
       methodVisitor.visitVarInsn(
           getStoreType(invoke.returnTo().type()),
           localIndex.get(invoke.returnTo().name())
@@ -518,7 +326,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   @Override
   public void visitGetField(IGetField<?, ?> getField){
     if(!Modifier.isStatic(getField.source().modifiers())){
-      if(!context.inStackCode(codeCount)){
+      if(!(getField.inst() instanceof CodeBlock.StackElem)){
         methodVisitor.visitVarInsn(ALOAD, localIndex.get(getField.inst().name()));
       }
     }
@@ -532,7 +340,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
     castAssign(getField.source().type(), getField.target().type());
 
-    if(!context.inStackCode(codeCount)){
+    if(!(getField.target() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getStoreType(getField.source().type()),
           localIndex.get(getField.target().name())
@@ -543,12 +351,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   @Override
   public void visitPutField(IPutField<?, ?> putField){
     if(!Modifier.isStatic(putField.target().modifiers())){
-      if(!context.inStackCode(codeCount)){
+      if(!(putField.inst() instanceof CodeBlock.StackElem)){
         methodVisitor.visitVarInsn(ALOAD, localIndex.get(putField.inst().name()));
       }
     }
 
-    if(!context.inStackCode(codeCount)){
+    if(!(putField.source() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(putField.source().type()),
           localIndex.get(putField.source().name())
@@ -567,16 +375,20 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitLocalSet(ILocalAssign<?, ?> localSet){
-    if(!context.inStackCode(codeCount)){
+    if(!(localSet.source() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(localSet.source().type()),
           localIndex.get(localSet.source().name())
       );
     }
+    else if (localSet.target() instanceof CodeBlock.StackElem){
+      methodVisitor.visitInsn(Opcodes.DUP);
+      return;
+    }
 
     castAssign(localSet.source().type(), localSet.target().type());
+    if (localSet.target() instanceof CodeBlock.StackElem) return;
 
-    if(context.inStackCode(codeCount)) return;
     methodVisitor.visitVarInsn(
         getStoreType(localSet.target().type()),
         localIndex.get(localSet.target().name())
@@ -585,14 +397,14 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitOperate(IOperate<?> operate){
-    if(!context.inStackCode(codeCount)){
+    if(!(operate.leftOpNumber() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(operate.leftOpNumber().type()),
           localIndex.get(operate.leftOpNumber().name())
       );
     }
 
-    if(!context.inStackCode(codeCount)){
+    if(!(operate.rightOpNumber() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(operate.rightOpNumber().type()),
           localIndex.get(operate.rightOpNumber().name())
@@ -635,7 +447,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       methodVisitor.visitInsn(opc);
     }
 
-    if(context.inStackCode(codeCount)) return;
+    if(operate.resultTo() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
         getStoreType(operate.resultTo().type()),
         localIndex.get(operate.resultTo().name())
@@ -671,7 +483,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitCast(ICast cast){
-    if(!context.inStackCode(codeCount)){
+    if(!(cast.source() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(cast.source().type()),
           localIndex.get(cast.source().name())
@@ -680,7 +492,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
     castAssign(cast.source().type(), cast.target().type());
 
-    if(context.inStackCode(codeCount)) return;
+    if(cast.target() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
         getStoreType(cast.target().type()),
         localIndex.get(cast.target().name())
@@ -708,14 +520,14 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       case MOREOREQUAL -> IF_ICMPGE;
     };
 
-    if(!context.inStackCode(codeCount)){
+    if(!(compare.leftNumber() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(compare.leftNumber().type()),
           localIndex.get(compare.leftNumber().name())
       );
     }
 
-    if(!context.inStackCode(codeCount)){
+    if(!(compare.rightNumber() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(compare.rightNumber().type()),
           localIndex.get(compare.rightNumber().name())
@@ -736,7 +548,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       case MOREOREQUAL -> IFGE;
     };
 
-    if(!context.inStackCode(codeCount)){
+    if(!(condition.condition() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(condition.condition().type()),
           localIndex.get(condition.condition().name())
@@ -748,7 +560,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitArrayGet(IArrayGet<?> arrayGet){
-    if(!context.inStackCode(codeCount)){
+    if(!(arrayGet.array() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           ALOAD,
           localIndex.get(arrayGet.array().name())
@@ -768,7 +580,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else if(componentType == ClassInfo.CHAR_TYPE){loadType = CALOAD;}
     else {loadType = AALOAD;}
 
-    if(!context.inStackCode(codeCount)){
+    if(!(arrayGet.index() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           ILOAD,
           localIndex.get(arrayGet.index().name())
@@ -779,7 +591,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
     castAssign(arrayGet.array().type().componentType(), arrayGet.getTo().type());
 
-    if(context.inStackCode(codeCount)) return;
+    if(arrayGet.getTo() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
         getStoreType(componentType),
         localIndex.get(arrayGet.getTo().name())
@@ -788,14 +600,14 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitArrayPut(IArrayPut<?> arrayPut){
-    if(!context.inStackCode(codeCount)){
+    if(!(arrayPut.array() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           ALOAD,
           localIndex.get(arrayPut.array().name())
       );
     }
 
-    if(!context.inStackCode(codeCount)){
+    if(!(arrayPut.index() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           ILOAD,
           localIndex.get(arrayPut.index().name())
@@ -815,7 +627,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else if(componentType == ClassInfo.CHAR_TYPE){storeType = CASTORE;}
     else {storeType = AASTORE;}
 
-    if(!context.inStackCode(codeCount)){
+    if(!(arrayPut.value() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(arrayPut.value().type()),
           localIndex.get(arrayPut.value().name())
@@ -829,7 +641,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitSwitch(ISwitch<?> zwitch){
-    if(!context.inStackCode(codeCount)){
+    if(!(zwitch.target() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(zwitch.target().type()),
           localIndex.get(zwitch.target().name())
@@ -893,7 +705,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitThrow(IThrow<?> thr){
-    if(!context.inStackCode(codeCount)){
+    if(!(thr.thr() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(thr.thr().type()),
           localIndex.get(thr.thr().name())
@@ -919,7 +731,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         default -> -1;
       };
 
-      if(!context.inStackCode(codeCount)){
+      if(!(iReturn.returnValue() instanceof CodeBlock.StackElem)){
         methodVisitor.visitVarInsn(
             getLoadType(retType),
             localIndex.get(iReturn.returnValue().name())
@@ -934,7 +746,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitInstanceOf(IInstanceOf instanceOf){
-    if(!context.inStackCode(codeCount)){
+    if(!(instanceOf.target() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(instanceOf.target().type()),
           localIndex.get(instanceOf.target().name())
@@ -946,7 +758,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         instanceOf.type().internalName()
     );
 
-    if(context.inStackCode(codeCount)) return;
+    if(instanceOf.result() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
         getStoreType(instanceOf.result().type()),
         localIndex.get(instanceOf.result().name())
@@ -958,8 +770,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     methodVisitor.visitTypeInsn(NEW, newInstance.type().internalName());
     methodVisitor.visitInsn(DUP);
 
-    for(ILocal<?> local: newInstance.params()){
-      if(!context.inStackCode(codeCount)){
+    if(!newInstance.params().isEmpty() && !(newInstance.params().get(0) instanceof CodeBlock.StackElem)){
+     for(ILocal<?> local: newInstance.params()){
         methodVisitor.visitVarInsn(
             getLoadType(local.type()),
             localIndex.get(local.name())
@@ -975,7 +787,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         false
     );
 
-    if(context.inStackCode(codeCount)) return;
+    if(newInstance.instanceTo() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
         getStoreType(newInstance.type()),
         localIndex.get(newInstance.instanceTo().name())
@@ -984,7 +796,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitOddOperate(IOddOperate<?> operate){
-    if(!context.inStackCode(codeCount)){
+    if(!(operate.operateNumber() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
           getLoadType(operate.operateNumber().type()),
           localIndex.get(operate.operateNumber().name())
@@ -1011,7 +823,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       methodVisitor.visitInsn(opc);
     }
 
-    if(context.inStackCode(codeCount)) return;
+    if(operate.resultTo() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
         ISTORE,
         localIndex.get(operate.resultTo().name())
@@ -1022,7 +834,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   public void visitConstant(ILoadConstant<?> loadConstant){
     visitConstant(loadConstant.constant());
 
-    if(context.inStackCode(codeCount)) return;
+    if(loadConstant.constTo() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
         getStoreType(loadConstant.constTo().type()),
         localIndex.get(loadConstant.constTo().name())
@@ -1034,7 +846,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     int dimension = newArray.arrayLength().size();
     if(dimension == 1){
       ILocal<?> len = newArray.arrayLength().get(0);
-      if(!context.inStackCode(codeCount)){
+      if(!(len instanceof CodeBlock.StackElem)){
         methodVisitor.visitVarInsn(
             getLoadType(len.type()),
             localIndex.get(len.name())
@@ -1048,11 +860,11 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     }
     else if(dimension > 1){
       IClass<?> arrType = newArray.arrayEleType();
-      for(int i = 0; i < dimension; i++){
-        arrType = arrType.asArray();
+      if(!(newArray.arrayLength().get(0) instanceof CodeBlock.StackElem)){
+        for(int i = 0; i < dimension; i++){
+          arrType = arrType.asArray();
 
-        ILocal<?> len = newArray.arrayLength().get(i);
-        if(!context.inStackCode(codeCount)){
+          ILocal<?> len = newArray.arrayLength().get(i);
           methodVisitor.visitVarInsn(
               getLoadType(len.type()),
               localIndex.get(len.name())
@@ -1064,7 +876,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     }
     else throw new IllegalHandleException("illegal array dimension " + dimension);
 
-    if(context.inStackCode(codeCount)) return;
+    if(newArray.resultTo() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
         ASTORE,
         localIndex.get(newArray.resultTo().name())

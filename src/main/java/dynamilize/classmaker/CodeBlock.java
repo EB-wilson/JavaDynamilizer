@@ -12,6 +12,45 @@ import static dynamilize.classmaker.ClassInfo.*;
  *
  * @author EBwilson */
 public class CodeBlock<R> implements ICodeBlock<R>{
+  public static class StackElem<Type> implements ILocal<Type>{
+    private static final HashMap<IClass<?>, StackElem<?>> caching = new HashMap<>();
+
+    private final IClass<Type> type;
+
+    private StackElem(IClass<Type> type){
+      this.type = type;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> StackElem<T> get(IClass<T> type){
+      return (StackElem<T>) caching.computeIfAbsent(type, StackElem::new);
+    }
+
+    @Override
+    public String name() {
+      return "<stack>";
+    }
+
+    @Override
+    public int modifiers() {
+      return 0;
+    }
+
+    @Override
+    public IClass<Type> type() {
+      return type;
+    }
+
+    @Override
+    public Object initial() {
+      return null;
+    }
+  }
+
+  public static <T> ILocal<T> stack(IClass<T> type){
+    return StackElem.get(type);
+  }
+
   protected ArrayList<Element> statements = new ArrayList<>();
 
   protected ArrayList<ILocal<?>> parameter = new ArrayList<>();
