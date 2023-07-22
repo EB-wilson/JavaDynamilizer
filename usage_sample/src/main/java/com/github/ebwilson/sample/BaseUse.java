@@ -9,8 +9,6 @@ import dynamilize.classmaker.AbstractClassGenerator;
 import dynamilize.classmaker.BaseClassLoader;
 import dynamilize.classmaker.ClassInfo;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 

@@ -28,27 +28,27 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     HashMap<Character, Integer> map;
     map = new HashMap<>();
     CASTTABLE.put('I', map);
-    map.put('I', I2L);
-    map.put('F', I2F);
-    map.put('D', I2D);
-    map.put('B', I2B);
-    map.put('C', I2C);
-    map.put('S', I2S);
+    map.put('I', Opcodes.I2L);
+    map.put('F', Opcodes.I2F);
+    map.put('D', Opcodes.I2D);
+    map.put('B', Opcodes.I2B);
+    map.put('C', Opcodes.I2C);
+    map.put('S', Opcodes.I2S);
     map = new HashMap<>();
     CASTTABLE.put('L', map);
-    map.put('I', L2I);
-    map.put('F', L2F);
-    map.put('D', L2D);
+    map.put('I', Opcodes.L2I);
+    map.put('F', Opcodes.L2F);
+    map.put('D', Opcodes.L2D);
     map = new HashMap<>();
     CASTTABLE.put('F', map);
-    map.put('I', F2I);
-    map.put('L', F2L);
-    map.put('D', F2D);
+    map.put('I', Opcodes.F2I);
+    map.put('L', Opcodes.F2L);
+    map.put('D', Opcodes.F2D);
     map = new HashMap<>();
     CASTTABLE.put('D', map);
-    map.put('I', D2I);
-    map.put('L', D2L);
-    map.put('F', D2F);
+    map.put('I', Opcodes.D2I);
+    map.put('L', Opcodes.D2L);
+    map.put('F', Opcodes.D2F);
   }
 
   protected final ByteClassLoader classLoader;
@@ -207,7 +207,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
         IField<?> field = fieldMap.get(entry.getKey());
         methodVisitor.visitFieldInsn(
-            PUTSTATIC,
+            Opcodes.PUTSTATIC,
             field.owner().internalName(),
             field.name(),
             field.type().realName());
@@ -250,7 +250,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else if(end != null && end.kind() == ElementKind.THROW) return;
 
     if(block.owner().returnType() == ClassInfo.VOID_TYPE){
-      methodVisitor.visitInsn(RETURN);
+      methodVisitor.visitInsn(Opcodes.RETURN);
     }
     else throw new IllegalHandleException("method return a non-null value, but the method is not returning correctly");
   }
@@ -277,14 +277,14 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitInvoke(IInvoke<?> invoke){
-    int invokeType = Modifier.isStatic(invoke.method().modifiers())? INVOKESTATIC:
-        Modifier.isInterface(invoke.method().owner().modifiers())? INVOKEINTERFACE:
-        invoke.method().name().equals("<init>") || invoke.callSuper()? INVOKESPECIAL:
-        INVOKEVIRTUAL;
+    int invokeType = Modifier.isStatic(invoke.method().modifiers())? Opcodes.INVOKESTATIC:
+        Modifier.isInterface(invoke.method().owner().modifiers())? Opcodes.INVOKEINTERFACE:
+        invoke.method().name().equals("<init>") || invoke.callSuper()? Opcodes.INVOKESPECIAL:
+        Opcodes.INVOKEVIRTUAL;
     
     if(!Modifier.isStatic(invoke.method().modifiers())){
       if(!(invoke.target() instanceof CodeBlock.StackElem)){
-        methodVisitor.visitVarInsn(ALOAD, localIndex.get(invoke.target().name()));
+        methodVisitor.visitVarInsn(Opcodes.ALOAD, localIndex.get(invoke.target().name()));
       }
     }
 
@@ -309,7 +309,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
     if(invoke.returnTo() == null){
       if(invoke.method().returnType() != ClassInfo.VOID_TYPE){
-        methodVisitor.visitInsn(POP);
+        methodVisitor.visitInsn(Opcodes.POP);
       }
     }
     else{
@@ -327,12 +327,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   public void visitGetField(IGetField<?, ?> getField){
     if(!Modifier.isStatic(getField.source().modifiers())){
       if(!(getField.inst() instanceof CodeBlock.StackElem)){
-        methodVisitor.visitVarInsn(ALOAD, localIndex.get(getField.inst().name()));
+        methodVisitor.visitVarInsn(Opcodes.ALOAD, localIndex.get(getField.inst().name()));
       }
     }
 
     methodVisitor.visitFieldInsn(
-        Modifier.isStatic(getField.source().modifiers())? GETSTATIC: GETFIELD,
+        Modifier.isStatic(getField.source().modifiers())? Opcodes.GETSTATIC: Opcodes.GETFIELD,
         getField.source().owner().internalName(),
         getField.source().name(),
         getField.source().type().realName()
@@ -352,7 +352,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   public void visitPutField(IPutField<?, ?> putField){
     if(!Modifier.isStatic(putField.target().modifiers())){
       if(!(putField.inst() instanceof CodeBlock.StackElem)){
-        methodVisitor.visitVarInsn(ALOAD, localIndex.get(putField.inst().name()));
+        methodVisitor.visitVarInsn(Opcodes.ALOAD, localIndex.get(putField.inst().name()));
       }
     }
 
@@ -366,7 +366,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     castAssign(putField.source().type(), putField.target().type());
 
     methodVisitor.visitFieldInsn(
-        Modifier.isStatic(putField.target().modifiers())? PUTSTATIC: PUTFIELD,
+        Modifier.isStatic(putField.target().modifiers())? Opcodes.PUTSTATIC: Opcodes.PUTFIELD,
         putField.target().owner().internalName(),
         putField.target().name(),
         putField.target().type().realName()
@@ -431,17 +431,17 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       int ilfd = getILFD(type);
 
       int opc = switch(operate.opCode()){
-        case ADD -> selectILFD(ilfd, IADD, LADD, FADD, DADD);
-        case SUBSTRUCTION -> selectILFD(ilfd, ISUB, LSUB, FSUB, DSUB);
-        case MULTI -> selectILFD(ilfd, IMUL, LMUL, FMUL, DMUL);
-        case DIVISION -> selectILFD(ilfd, IDIV, LDIV, FDIV, DDIV);
-        case REMAINING -> selectILFD(ilfd, IREM, LREM, FREM, DREM);
-        case LEFTMOVE -> selectIL(ilfd, ISHL, LSHL);
-        case RIGHTMOVE -> selectIL(ilfd, ISHR, LSHR);
-        case UNSIGNMOVE -> selectIL(ilfd, IUSHR, LUSHR);
-        case BITSAME -> selectIL(ilfd, IAND, LAND);
-        case BITOR -> selectIL(ilfd, IOR, LOR);
-        case BITXOR -> selectIL(ilfd, IXOR, LXOR);
+        case ADD -> selectILFD(ilfd, Opcodes.IADD, Opcodes.LADD, Opcodes.FADD, Opcodes.DADD);
+        case SUBSTRUCTION -> selectILFD(ilfd, Opcodes.ISUB, Opcodes.LSUB, Opcodes.FSUB, Opcodes.DSUB);
+        case MULTI -> selectILFD(ilfd, Opcodes.IMUL, Opcodes.LMUL, Opcodes.FMUL, Opcodes.DMUL);
+        case DIVISION -> selectILFD(ilfd, Opcodes.IDIV, Opcodes.LDIV, Opcodes.FDIV, Opcodes.DDIV);
+        case REMAINING -> selectILFD(ilfd, Opcodes.IREM, Opcodes.LREM, Opcodes.FREM, Opcodes.DREM);
+        case LEFTMOVE -> selectIL(ilfd, Opcodes.ISHL, Opcodes.LSHL);
+        case RIGHTMOVE -> selectIL(ilfd, Opcodes.ISHR, Opcodes.LSHR);
+        case UNSIGNMOVE -> selectIL(ilfd, Opcodes.IUSHR, Opcodes.LUSHR);
+        case BITSAME -> selectIL(ilfd, Opcodes.IAND, Opcodes.LAND);
+        case BITOR -> selectIL(ilfd, Opcodes.IOR, Opcodes.LOR);
+        case BITXOR -> selectIL(ilfd, Opcodes.IXOR, Opcodes.LXOR);
       };
 
       methodVisitor.visitInsn(opc);
@@ -501,7 +501,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitGoto(IGoto iGoto){
-    methodVisitor.visitJumpInsn(GOTO, labelMap.get(iGoto.target()));
+    methodVisitor.visitJumpInsn(Opcodes.GOTO, labelMap.get(iGoto.target()));
   }
   
   @Override
@@ -512,12 +512,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   @Override
   public void visitCompare(ICompare<?> compare){
     int opc = switch(compare.comparison()){
-      case EQUAL -> IF_ACMPEQ;
-      case UNEQUAL -> IF_ACMPNE;
-      case LESS -> IF_ICMPLT;
-      case LESSOREQUAL -> IF_ICMPLE;
-      case MORE -> IF_ICMPGT;
-      case MOREOREQUAL -> IF_ICMPGE;
+      case EQUAL -> Opcodes.IF_ACMPEQ;
+      case UNEQUAL -> Opcodes.IF_ACMPNE;
+      case LESS -> Opcodes.IF_ICMPLT;
+      case LESSOREQUAL -> Opcodes.IF_ICMPLE;
+      case MORE -> Opcodes.IF_ICMPGT;
+      case MOREOREQUAL -> Opcodes.IF_ICMPGE;
     };
 
     if(!(compare.leftNumber() instanceof CodeBlock.StackElem)){
@@ -540,12 +540,12 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   @Override
   public void visitCondition(ICondition condition){
     int opc = switch(condition.condCode()){
-      case EQUAL -> IFEQ;
-      case UNEQUAL -> IFNE;
-      case LESS -> IFLT;
-      case LESSOREQUAL -> IFLE;
-      case MORE -> IFGT;
-      case MOREOREQUAL -> IFGE;
+      case EQUAL -> Opcodes.IFEQ;
+      case UNEQUAL -> Opcodes.IFNE;
+      case LESS -> Opcodes.IFLT;
+      case LESSOREQUAL -> Opcodes.IFLE;
+      case MORE -> Opcodes.IFGT;
+      case MOREOREQUAL -> Opcodes.IFGE;
     };
 
     if(!(condition.condition() instanceof CodeBlock.StackElem)){
@@ -562,7 +562,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   public void visitArrayGet(IArrayGet<?> arrayGet){
     if(!(arrayGet.array() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
-          ALOAD,
+          Opcodes.ALOAD,
           localIndex.get(arrayGet.array().name())
       );
     }
@@ -570,19 +570,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     IClass<?> componentType = arrayGet.array().type().componentType();
 
     int loadType;
-    if(componentType == ClassInfo.INT_TYPE){loadType = IALOAD;}
-    else if(componentType == ClassInfo.FLOAT_TYPE){loadType = FALOAD;}
-    else if(componentType == ClassInfo.LONG_TYPE){loadType = LALOAD;}
-    else if(componentType == ClassInfo.DOUBLE_TYPE){loadType = DALOAD;}
-    else if(componentType == ClassInfo.BYTE_TYPE){loadType = BALOAD;}
-    else if(componentType == ClassInfo.SHORT_TYPE){loadType = SALOAD;}
-    else if(componentType == ClassInfo.BOOLEAN_TYPE){loadType = BALOAD;}
-    else if(componentType == ClassInfo.CHAR_TYPE){loadType = CALOAD;}
-    else {loadType = AALOAD;}
+    if(componentType == ClassInfo.INT_TYPE){loadType = Opcodes.IALOAD;}
+    else if(componentType == ClassInfo.FLOAT_TYPE){loadType = Opcodes.FALOAD;}
+    else if(componentType == ClassInfo.LONG_TYPE){loadType = Opcodes.LALOAD;}
+    else if(componentType == ClassInfo.DOUBLE_TYPE){loadType = Opcodes.DALOAD;}
+    else if(componentType == ClassInfo.BYTE_TYPE){loadType = Opcodes.BALOAD;}
+    else if(componentType == ClassInfo.SHORT_TYPE){loadType = Opcodes.SALOAD;}
+    else if(componentType == ClassInfo.BOOLEAN_TYPE){loadType = Opcodes.BALOAD;}
+    else if(componentType == ClassInfo.CHAR_TYPE){loadType = Opcodes.CALOAD;}
+    else {loadType = Opcodes.AALOAD;}
 
     if(!(arrayGet.index() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
-          ILOAD,
+          Opcodes.ILOAD,
           localIndex.get(arrayGet.index().name())
       );
     }
@@ -602,14 +602,14 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   public void visitArrayPut(IArrayPut<?> arrayPut){
     if(!(arrayPut.array() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
-          ALOAD,
+          Opcodes.ALOAD,
           localIndex.get(arrayPut.array().name())
       );
     }
 
     if(!(arrayPut.index() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
-          ILOAD,
+          Opcodes.ILOAD,
           localIndex.get(arrayPut.index().name())
       );
     }
@@ -617,15 +617,15 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     IClass<?> componentType = arrayPut.array().type().componentType();
 
     int storeType;
-    if(componentType == ClassInfo.INT_TYPE){storeType = IASTORE;}
-    else if(componentType == ClassInfo.FLOAT_TYPE){storeType = FASTORE;}
-    else if(componentType == ClassInfo.LONG_TYPE){storeType = LASTORE;}
-    else if(componentType == ClassInfo.DOUBLE_TYPE){storeType = DASTORE;}
-    else if(componentType == ClassInfo.BYTE_TYPE){storeType = BASTORE;}
-    else if(componentType == ClassInfo.SHORT_TYPE){storeType = SASTORE;}
-    else if(componentType == ClassInfo.BOOLEAN_TYPE){storeType = BASTORE;}
-    else if(componentType == ClassInfo.CHAR_TYPE){storeType = CASTORE;}
-    else {storeType = AASTORE;}
+    if(componentType == ClassInfo.INT_TYPE){storeType = Opcodes.IASTORE;}
+    else if(componentType == ClassInfo.FLOAT_TYPE){storeType = Opcodes.FASTORE;}
+    else if(componentType == ClassInfo.LONG_TYPE){storeType = Opcodes.LASTORE;}
+    else if(componentType == ClassInfo.DOUBLE_TYPE){storeType = Opcodes.DASTORE;}
+    else if(componentType == ClassInfo.BYTE_TYPE){storeType = Opcodes.BASTORE;}
+    else if(componentType == ClassInfo.SHORT_TYPE){storeType = Opcodes.SASTORE;}
+    else if(componentType == ClassInfo.BOOLEAN_TYPE){storeType = Opcodes.BASTORE;}
+    else if(componentType == ClassInfo.CHAR_TYPE){storeType = Opcodes.CASTORE;}
+    else {storeType = Opcodes.AASTORE;}
 
     if(!(arrayPut.value() instanceof CodeBlock.StackElem)){
       methodVisitor.visitVarInsn(
@@ -692,7 +692,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
       if(!zwitch.target().type().isPrimitive()){
         methodVisitor.visitMethodInsn(
-            INVOKESTATIC,
+            Opcodes.INVOKESTATIC,
             "java/lang/Objects",
             "hashCode",
             "(Ljava/lang/Object;)I",
@@ -712,22 +712,22 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       );
     }
 
-    methodVisitor.visitInsn(ATHROW);
+    methodVisitor.visitInsn(Opcodes.ATHROW);
   }
 
   @Override
   public void visitReturn(IReturn<?> iReturn){
     if(iReturn.returnValue() == null){
-      methodVisitor.visitInsn(RETURN);
+      methodVisitor.visitInsn(Opcodes.RETURN);
     }
     else{
       IClass<?> retType = iReturn.returnValue().type();
       int opc = switch(getTypeChar(retType, true)){
-        case 'I' -> IRETURN;
-        case 'L' -> LRETURN;
-        case 'F' -> FRETURN;
-        case 'D' -> DRETURN;
-        case 'A' -> ARETURN;
+        case 'I' -> Opcodes.IRETURN;
+        case 'L' -> Opcodes.LRETURN;
+        case 'F' -> Opcodes.FRETURN;
+        case 'D' -> Opcodes.DRETURN;
+        case 'A' -> Opcodes.ARETURN;
         default -> -1;
       };
 
@@ -754,7 +754,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     }
 
     methodVisitor.visitTypeInsn(
-        INSTANCEOF,
+        Opcodes.INSTANCEOF,
         instanceOf.type().internalName()
     );
 
@@ -767,8 +767,8 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   @Override
   public void visitNewInstance(INewInstance<?> newInstance){
-    methodVisitor.visitTypeInsn(NEW, newInstance.type().internalName());
-    methodVisitor.visitInsn(DUP);
+    methodVisitor.visitTypeInsn(Opcodes.NEW, newInstance.type().internalName());
+    methodVisitor.visitInsn(Opcodes.DUP);
 
     if(!newInstance.params().isEmpty() && !(newInstance.params().get(0) instanceof CodeBlock.StackElem)){
      for(ILocal<?> local: newInstance.params()){
@@ -780,7 +780,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     }
 
     methodVisitor.visitMethodInsn(
-        INVOKESPECIAL,
+        Opcodes.INVOKESPECIAL,
         newInstance.type().internalName(),
         newInstance.constructor().name(),
         newInstance.constructor().typeDescription(),
@@ -807,17 +807,17 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     int ilfd = getILFD(type);
 
     int opc = switch(operate.opCode()){
-      case NEGATIVE -> selectILFD(ilfd, INEG, LNEG, FNEG, DNEG);
-      case BITNOR -> selectIL(ilfd, IXOR, LXOR);
+      case NEGATIVE -> selectILFD(ilfd, Opcodes.INEG, Opcodes.LNEG, Opcodes.FNEG, Opcodes.DNEG);
+      case BITNOR -> selectIL(ilfd, Opcodes.IXOR, Opcodes.LXOR);
     };
 
-    if(opc == IXOR){
-      methodVisitor.visitInsn(ICONST_M1);
-      methodVisitor.visitInsn(IXOR);
+    if(opc == Opcodes.IXOR){
+      methodVisitor.visitInsn(Opcodes.ICONST_M1);
+      methodVisitor.visitInsn(Opcodes.IXOR);
     }
-    else if(opc == LXOR){
+    else if(opc == Opcodes.LXOR){
       methodVisitor.visitLdcInsn(-1L);
-      methodVisitor.visitInsn(LXOR);
+      methodVisitor.visitInsn(Opcodes.LXOR);
     }
     else{
       methodVisitor.visitInsn(opc);
@@ -825,7 +825,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
     if(operate.resultTo() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
-        ISTORE,
+        Opcodes.ISTORE,
         localIndex.get(operate.resultTo().name())
     );
   }
@@ -854,7 +854,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       }
 
       methodVisitor.visitTypeInsn(
-          newArray.arrayEleType().isPrimitive()? NEWARRAY: ANEWARRAY,
+          newArray.arrayEleType().isPrimitive()? Opcodes.NEWARRAY: Opcodes.ANEWARRAY,
           newArray.arrayEleType().internalName()
       );
     }
@@ -878,7 +878,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
     if(newArray.resultTo() instanceof CodeBlock.StackElem) return;
     methodVisitor.visitVarInsn(
-        ASTORE,
+        Opcodes.ASTORE,
         localIndex.get(newArray.resultTo().name())
     );
   }
@@ -925,11 +925,11 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
   }
 
   protected int getStoreType(IClass<?> type){
-    return typeSelect(type, ASTORE, ISTORE, LSTORE, DSTORE, FSTORE);
+    return typeSelect(type, Opcodes.ASTORE, Opcodes.ISTORE, Opcodes.LSTORE, Opcodes.DSTORE, Opcodes.FSTORE);
   }
 
   protected int getLoadType(IClass<?> type){
-    return typeSelect(type, ALOAD, ILOAD, LLOAD, DLOAD, FLOAD);
+    return typeSelect(type, Opcodes.ALOAD, Opcodes.ILOAD, Opcodes.LLOAD, Opcodes.DLOAD, Opcodes.FLOAD);
   }
 
   private static int typeSelect(IClass<?> type, int aload, int iload, int lload, int dload, int fload){
@@ -944,7 +944,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
 
   protected void visitConstant(Object value){
     if(value == null){
-      methodVisitor.visitInsn(ACONST_NULL);
+      methodVisitor.visitInsn(Opcodes.ACONST_NULL);
     }
     else if(value instanceof Class c){
       if(c.isPrimitive()){
@@ -962,7 +962,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
           throw new IllegalHandleException("how do you run to this?");
 
         methodVisitor.visitFieldInsn(
-            GETSTATIC,
+            Opcodes.GETSTATIC,
             type.internalName(),
             "TYPE",
             CLASS_TYPE.realName()
@@ -976,26 +976,26 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       if(componentType.isPrimitive() || componentType == String.class || componentType.isEnum() || componentType.isArray()){
         int opc;
         int storeType;
-        if(componentType == int.class){opc = T_INT; storeType = IASTORE;}
-        else if(componentType == float.class){opc = T_FLOAT; storeType = FASTORE;}
-        else if(componentType == long.class){opc = T_LONG; storeType = LASTORE;}
-        else if(componentType == double.class){opc = T_DOUBLE; storeType = DASTORE;}
-        else if(componentType == byte.class){opc = T_BYTE; storeType = BASTORE;}
-        else if(componentType == short.class){opc = T_SHORT; storeType = SASTORE;}
-        else if(componentType == boolean.class){opc = T_BOOLEAN; storeType = BASTORE;}
-        else if(componentType == char.class){opc = T_CHAR; storeType = CASTORE;}
-        else {opc = 0; storeType = AASTORE;}
+        if(componentType == int.class){opc = Opcodes.T_INT; storeType = Opcodes.IASTORE;}
+        else if(componentType == float.class){opc = Opcodes.T_FLOAT; storeType = Opcodes.FASTORE;}
+        else if(componentType == long.class){opc = Opcodes.T_LONG; storeType = Opcodes.LASTORE;}
+        else if(componentType == double.class){opc = Opcodes.T_DOUBLE; storeType = Opcodes.DASTORE;}
+        else if(componentType == byte.class){opc = Opcodes.T_BYTE; storeType = Opcodes.BASTORE;}
+        else if(componentType == short.class){opc = Opcodes.T_SHORT; storeType = Opcodes.SASTORE;}
+        else if(componentType == boolean.class){opc = Opcodes.T_BOOLEAN; storeType = Opcodes.BASTORE;}
+        else if(componentType == char.class){opc = Opcodes.T_CHAR; storeType = Opcodes.CASTORE;}
+        else {opc = 0; storeType = Opcodes.AASTORE;}
 
         int len = Array.getLength(value);
         visitConstant(len);
 
         if(componentType.isPrimitive()){
-          methodVisitor.visitIntInsn(NEWARRAY, opc);
+          methodVisitor.visitIntInsn(Opcodes.NEWARRAY, opc);
         }
-        else methodVisitor.visitTypeInsn(ANEWARRAY, ClassInfo.asType(value.getClass()).internalName());
+        else methodVisitor.visitTypeInsn(Opcodes.ANEWARRAY, ClassInfo.asType(value.getClass()).internalName());
 
         for(int i = 0; i < len; i++){
-          methodVisitor.visitInsn(DUP);
+          methodVisitor.visitInsn(Opcodes.DUP);
           visitConstant(i);
           visitConstant(Array.get(value, i));
 
@@ -1007,19 +1007,19 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     || value instanceof Long || value instanceof Double){
       if(value instanceof Long){
         long l = (long) value;
-        if(l == 0){methodVisitor.visitInsn(LCONST_0); return;}
-        else if(l == 1){methodVisitor.visitInsn(LCONST_1); return;}
+        if(l == 0){methodVisitor.visitInsn(Opcodes.LCONST_0); return;}
+        else if(l == 1){methodVisitor.visitInsn(Opcodes.LCONST_1); return;}
       }
       else if(value instanceof Float){
         float f = (float) value;
-        if(f == 0){methodVisitor.visitInsn(FCONST_0); return;}
-        else if(f == 1){methodVisitor.visitInsn(FCONST_1); return;}
-        else if(f == 2){methodVisitor.visitInsn(FCONST_2); return;}
+        if(f == 0){methodVisitor.visitInsn(Opcodes.FCONST_0); return;}
+        else if(f == 1){methodVisitor.visitInsn(Opcodes.FCONST_1); return;}
+        else if(f == 2){methodVisitor.visitInsn(Opcodes.FCONST_2); return;}
       }
       else if(value instanceof Double){
         double d = (double) value;
-        if(d == 0){methodVisitor.visitInsn(DCONST_0); return;}
-        else if(d == 1){methodVisitor.visitInsn(DCONST_1); return;}
+        if(d == 0){methodVisitor.visitInsn(Opcodes.DCONST_0); return;}
+        else if(d == 1){methodVisitor.visitInsn(Opcodes.DCONST_1); return;}
       }
 
       methodVisitor.visitLdcInsn(value);
@@ -1029,36 +1029,36 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
       int v = (int) value;
       switch(v){
         case 0 -> {
-          methodVisitor.visitInsn(ICONST_0);
+          methodVisitor.visitInsn(Opcodes.ICONST_0);
           return;
         }
         case 1 -> {
-          methodVisitor.visitInsn(ICONST_1);
+          methodVisitor.visitInsn(Opcodes.ICONST_1);
           return;
         }
         case 2 -> {
-          methodVisitor.visitInsn(ICONST_2);
+          methodVisitor.visitInsn(Opcodes.ICONST_2);
           return;
         }
         case 3 -> {
-          methodVisitor.visitInsn(ICONST_3);
+          methodVisitor.visitInsn(Opcodes.ICONST_3);
           return;
         }
         case 4 -> {
-          methodVisitor.visitInsn(ICONST_4);
+          methodVisitor.visitInsn(Opcodes.ICONST_4);
           return;
         }
         case 5 -> {
-          methodVisitor.visitInsn(ICONST_5);
+          methodVisitor.visitInsn(Opcodes.ICONST_5);
           return;
         }
       }
 
       if(v <= Byte.MAX_VALUE && v >= Byte.MIN_VALUE){
-        methodVisitor.visitIntInsn(BIPUSH, v);
+        methodVisitor.visitIntInsn(Opcodes.BIPUSH, v);
       }
       else if(v <= Short.MAX_VALUE && v >= Short.MIN_VALUE){
-        methodVisitor.visitIntInsn(SIPUSH, v);
+        methodVisitor.visitIntInsn(Opcodes.SIPUSH, v);
       }
       else{
         methodVisitor.visitLdcInsn(value);
@@ -1067,7 +1067,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else if(value instanceof Enum<?>){
       IClass<?> type = ClassInfo.asType(value.getClass());
       methodVisitor.visitFieldInsn(
-          GETSTATIC,
+          Opcodes.GETSTATIC,
           type.internalName(),
           ((Enum<?>)value).name(),
           type.realName()
@@ -1087,7 +1087,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
         int opc = CASTTABLE.get(getTypeChar(source, true)).get(getTypeChar(target, false));
         methodVisitor.visitInsn(opc);
       }
-      else methodVisitor.visitTypeInsn(CHECKCAST, target.isArray()? target.realName(): target.internalName());
+      else methodVisitor.visitTypeInsn(Opcodes.CHECKCAST, target.isArray()? target.realName(): target.internalName());
     }
   }
 
@@ -1098,49 +1098,49 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     if(target == ClassInfo.INT_TYPE || target == ClassInfo.FLOAT_TYPE
         || target == ClassInfo.LONG_TYPE || target == ClassInfo.DOUBLE_TYPE
         || target == ClassInfo.BYTE_TYPE || target == ClassInfo.SHORT_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Number");
+      methodVisitor.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Number");
     }
 
     if(target == ClassInfo.INT_TYPE){
       methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Number", "intValue", "()I", false
+          Opcodes.INVOKEVIRTUAL, "java/lang/Number", "intValue", "()I", false
       );
     }
     if(target == ClassInfo.FLOAT_TYPE){
       methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Number", "floatValue", "()F", false
+          Opcodes.INVOKEVIRTUAL, "java/lang/Number", "floatValue", "()F", false
       );
     }
     if(target == ClassInfo.BYTE_TYPE){
       methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Number", "byteValue", "()B", false
+          Opcodes.INVOKEVIRTUAL, "java/lang/Number", "byteValue", "()B", false
       );
     }
     if(target == ClassInfo.SHORT_TYPE){
       methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Number", "shortValue", "()S", false
+          Opcodes.INVOKEVIRTUAL, "java/lang/Number", "shortValue", "()S", false
       );
     }
     if(target == ClassInfo.LONG_TYPE){
       methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Number", "longValue", "()J", false
+          Opcodes.INVOKEVIRTUAL, "java/lang/Number", "longValue", "()J", false
       );
     }
     if(target == ClassInfo.DOUBLE_TYPE){
       methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Number", "doubleValue", "()D", false
+          Opcodes.INVOKEVIRTUAL, "java/lang/Number", "doubleValue", "()D", false
       );
     }
     if(target == ClassInfo.BOOLEAN_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Boolean");
+      methodVisitor.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Boolean");
       methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false
+          Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false
       );
     }
     if(target == ClassInfo.CHAR_TYPE){
-      methodVisitor.visitTypeInsn(CHECKCAST, "java/lang/Character");
+      methodVisitor.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Character");
       methodVisitor.visitMethodInsn(
-          INVOKEVIRTUAL, "java/lang/Character", "charValue", "()C", false
+          Opcodes.INVOKEVIRTUAL, "java/lang/Character", "charValue", "()C", false
       );
     }
   }
@@ -1161,7 +1161,7 @@ public class ASMGenerator extends AbstractClassGenerator implements Opcodes{
     else if(source == ClassInfo.CHAR_TYPE){typeDisc = "java/lang/Character"; methodDisc = "(C)Ljava/lang/Character;";}
 
     methodVisitor.visitMethodInsn(
-        INVOKESTATIC,
+        Opcodes.INVOKESTATIC,
         typeDisc,
         "valueOf",
         methodDisc,

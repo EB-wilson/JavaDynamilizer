@@ -14,18 +14,6 @@ version JDERVersion
 sourceCompatibility = 17
 targetCompatibility = 8
 
-repositories {
-  mavenCentral()
-  maven{ url 'https://www.jitpack.io' }
-}
-
-dependencies {
-  implementation 'org.ow2.asm:asm:9.3'
-  apiElements 'org.ow2.asm:asm:9.3'
-
-  annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
-}
-
 publishing {
   publications {
     maven(MavenPublication) {
@@ -56,10 +44,4 @@ allprojects{
         "--add-opens", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
     ])
   }
-}
-
-tasks.withType(JavaCompile) {
-  options.compilerArgs.addAll([
-      "--release", "8"
-  ])
 }

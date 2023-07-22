@@ -3,7 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/baseimpl/JavaDynamilizer.baseimpl.main.iml" filepath="$PROJECT_DIR$/.idea/modules/baseimpl/JavaDynamilizer.baseimpl.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/JavaDynamilizer.main.iml" filepath="$PROJECT_DIR$/.idea/modules/JavaDynamilizer.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/core/JavaDynamilizer.core.main.iml" filepath="$PROJECT_DIR$/.idea/modules/core/JavaDynamilizer.core.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/baseimpl/com.github.EB-wilson.JavaDynamilizer.baseimpl.main.iml" filepath="$PROJECT_DIR$/.idea/modules/baseimpl/com.github.EB-wilson.JavaDynamilizer.baseimpl.main.iml" />
     </modules>
   </component>

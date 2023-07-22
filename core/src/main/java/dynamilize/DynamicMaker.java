@@ -15,7 +15,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.IntFunction;
 
 import static dynamilize.classmaker.ClassInfo.*;
 import static dynamilize.classmaker.CodeBlock.stack;

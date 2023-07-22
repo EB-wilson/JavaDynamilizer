@@ -438,6 +438,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     ILocal<?> result;
 
     public Operate(OPCode opc, ILocal<T> leftOP, ILocal<T> rightOP, ILocal<?> result){
+      checkStack(this, leftOP, rightOP);
+
       this.opc = opc;
       this.leftOP = leftOP;
       this.rightOP = rightOP;
@@ -471,7 +473,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
 
     OddOperator opCode;
 
-    public OddOperate( OddOperator opCode, ILocal<T> opNumb, ILocal<T> retTo){
+    public OddOperate(OddOperator opCode, ILocal<T> opNumb, ILocal<T> retTo){
       this.opNumb = opNumb;
       this.retTo = retTo;
       this.opCode = opCode;
@@ -519,6 +521,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     IField<T> target;
 
     public PutField(ILocal<?> inst, ILocal<S> source, IField<T> target){
+      checkStack(this, inst, source);
+
       this.inst = inst;
       this.source = source;
       this.target = target;
@@ -589,8 +593,11 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     boolean callSuper;
 
     public Invoke(ILocal<?> target, boolean callSuper, IMethod<?, R> method, ILocal<? super R> returnTo, ILocal<?>... args){
+      checkStack(this, args);
+      if (args.length >= 1) checkStack(this, target, args[0]);
+
       this.method = method;
-      this.returnTo = method.returnType() != ClassInfo.VOID_TYPE? returnTo: null;
+      this.returnTo = method.returnType() != VOID_TYPE ? returnTo: null;
       this.target = target;
       this.args = Arrays.asList(args);
       this.callSuper = callSuper;
@@ -634,6 +641,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     Comparison comparison;
 
     public Compare(ILocal<T> left, ILocal<T> right, Label jumpTo, Comparison comparison){
+      checkStack(this, left, right);
+
       this.left = left;
       this.right = right;
       this.jumpTo = jumpTo;
@@ -729,6 +738,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     List<ILocal<?>> params;
 
     public NewInstance(IMethod<T, Void> constructor, ILocal<? extends T> resultTo, ILocal<?>... params){
+      checkStack(this, params);
+
       this.constructor = constructor;
       this.type = constructor.owner();
       this.resultTo = resultTo;
@@ -762,6 +773,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     ILocal<?> retTo;
 
     public NewArray(IClass<T> arrCompType, List<ILocal<Integer>> arrayLength, ILocal<?> retTo){
+      checkStack(this, arrayLength.toArray(new ILocal[0]));
+
       this.arrCompType = arrCompType;
       this.arrayLength = arrayLength;
       this.retTo = retTo;
@@ -789,6 +802,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     ILocal<T> value;
 
     public ArrayPut(ILocal<T[]> array, ILocal<Integer> index, ILocal<T> value){
+      checkStack(array, index, value);
+
       this.array = array;
       this.index = index;
       this.value = value;
@@ -816,6 +831,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     ILocal<T> getTo;
 
     public ArrayGet(ILocal<T[]> array, ILocal<Integer> index, ILocal<T> getTo){
+      checkStack(array, index);
+
       this.array = array;
       this.index = index;
       this.getTo = getTo;
@@ -954,7 +971,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
 
     protected void checkTable(){
       if(target.type() == BOOLEAN_TYPE || (!target.type().isPrimitive()
-          && !ClassInfo.asType(Enum.class).isAssignableFrom(target.type())
+          && !asType(Enum.class).isAssignableFrom(target.type())
           && target.type() != STRING_TYPE))
         throw new IllegalHandleException("unsupported type error");
 
@@ -999,6 +1016,18 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     @Override
     public ILocal<T> thr(){
       return thr;
+    }
+  }
+
+  private static void checkStack(Element elem, ILocal<?>... accesses) {
+    boolean accessLocal = false;
+    for (ILocal<?> access : accesses) {
+      if (access == null) continue;
+
+      if(access instanceof CodeBlock.StackElem){
+        if (accessLocal) throw new IllegalHandleException("Bad stack access, element: " + elem);
+      }
+      else accessLocal = true;
     }
   }
 }
