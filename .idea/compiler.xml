@@ -20,6 +20,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="JavaDynamilizer.baseimpl.main" options="--add-exports java.base/jdk.internal.misc=ALL-UNNAMED" />
       <module name="JavaDynamilizer.main" options="--add-exports java.base/jdk.internal.misc=ALL-UNNAMED" />
+      <module name="com.github.EB-wilson.JavaDynamilizer.baseimpl.main" options="--add-exports java.base/jdk.internal.misc=ALL-UNNAMED" />
     </option>
   </component>
 </project>

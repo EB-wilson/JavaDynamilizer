@@ -51,13 +51,13 @@ public class CodeBlock<R> implements ICodeBlock<R>{
     return StackElem.get(type);
   }
 
-  protected ArrayList<Element> statements = new ArrayList<>();
+  protected final ArrayList<Element> statements = new ArrayList<>();
 
-  protected ArrayList<ILocal<?>> parameter = new ArrayList<>();
+  protected final ArrayList<ILocal<?>> parameter = new ArrayList<>();
   Local<?> selfPointer;
 
-  List<Label> labelList = new ArrayList<>();
-  IMethod<?, R> method;
+  final List<Label> labelList = new ArrayList<>();
+  final IMethod<?, R> method;
 
   public CodeBlock(IMethod<?, R> method){
     this.method = method;
@@ -398,9 +398,9 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   //*memberCodeTypes*//
   //*===============*//
   protected static class Local<T> implements ILocal<T>{
-    String name;
-    int modifiers;
-    IClass<T> type;
+    final String name;
+    final int modifiers;
+    final IClass<T> type;
 
     Object initial;
 
@@ -432,10 +432,11 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Operate<T> implements IOperate<T>{
-    OPCode opc;
+    final OPCode opc;
 
-    ILocal<T> leftOP, rightOP;
-    ILocal<?> result;
+    final ILocal<T> leftOP;
+    final ILocal<T> rightOP;
+    final ILocal<?> result;
 
     public Operate(OPCode opc, ILocal<T> leftOP, ILocal<T> rightOP, ILocal<?> result){
       checkStack(this, leftOP, rightOP);
@@ -468,10 +469,10 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class OddOperate<T> implements IOddOperate<T>{
-    ILocal<T> opNumb;
-    ILocal<T> retTo;
+    final ILocal<T> opNumb;
+    final ILocal<T> retTo;
 
-    OddOperator opCode;
+    final OddOperator opCode;
 
     public OddOperate(OddOperator opCode, ILocal<T> opNumb, ILocal<T> retTo){
       this.opNumb = opNumb;
@@ -496,8 +497,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class LocalAssign<S, T extends S> implements ILocalAssign<S, T>{
-    ILocal<S> src;
-    ILocal<T> tar;
+    final ILocal<S> src;
+    final ILocal<T> tar;
 
     public LocalAssign(ILocal<S> src, ILocal<T> tar){
       this.src = src;
@@ -516,9 +517,9 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class PutField<S, T extends S> implements IPutField<S, T>{
-    ILocal<?> inst;
-    ILocal<S> source;
-    IField<T> target;
+    final ILocal<?> inst;
+    final ILocal<S> source;
+    final IField<T> target;
 
     public PutField(ILocal<?> inst, ILocal<S> source, IField<T> target){
       checkStack(this, inst, source);
@@ -545,9 +546,9 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class GetField<S, T extends S> implements IGetField<S, T>{
-    ILocal<?> inst;
-    IField<S> source;
-    ILocal<T> target;
+    final ILocal<?> inst;
+    final IField<S> source;
+    final ILocal<T> target;
 
     public GetField(ILocal<?> inst, IField<S> source, ILocal<T> target){
       this.inst = inst;
@@ -572,7 +573,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Goto implements IGoto{
-    Label label;
+    final Label label;
 
     public Goto(Label label){
       this.label = label;
@@ -585,12 +586,12 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Invoke<R> implements IInvoke<R>{
-    IMethod<?, R> method;
-    ILocal<? super R> returnTo;
-    List<ILocal<?>> args;
-    ILocal<?> target;
+    final IMethod<?, R> method;
+    final ILocal<? super R> returnTo;
+    final List<ILocal<?>> args;
+    final ILocal<?> target;
 
-    boolean callSuper;
+    final boolean callSuper;
 
     public Invoke(ILocal<?> target, boolean callSuper, IMethod<?, R> method, ILocal<? super R> returnTo, ILocal<?>... args){
       checkStack(this, args);
@@ -633,12 +634,12 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Compare<T> implements ICompare<T>{
-    ILocal<T> left;
-    ILocal<T> right;
+    final ILocal<T> left;
+    final ILocal<T> right;
 
-    Label jumpTo;
+    final Label jumpTo;
 
-    Comparison comparison;
+    final Comparison comparison;
 
     public Compare(ILocal<T> left, ILocal<T> right, Label jumpTo, Comparison comparison){
       checkStack(this, left, right);
@@ -671,7 +672,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Cast implements ICast{
-    ILocal<?> src, tar;
+    final ILocal<?> src;
+    final ILocal<?> tar;
 
     public Cast(ILocal<?> src, ILocal<?> tar){
       this.src = src;
@@ -690,7 +692,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Return<R> implements IReturn<R>{
-    ILocal<R> local;
+    final ILocal<R> local;
 
     public Return(ILocal<R> local){
       this.local = local;
@@ -703,9 +705,9 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class InstanceOf implements IInstanceOf{
-    ILocal<?> target;
-    IClass<?> type;
-    ILocal<Boolean> result;
+    final ILocal<?> target;
+    final IClass<?> type;
+    final ILocal<Boolean> result;
 
     public InstanceOf(ILocal<?> target, IClass<?> type, ILocal<Boolean> result){
       this.target = target;
@@ -730,12 +732,12 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class NewInstance<T> implements INewInstance<T>{
-    IMethod<T, Void> constructor;
-    ILocal<? extends T> resultTo;
+    final IMethod<T, Void> constructor;
+    final ILocal<? extends T> resultTo;
 
-    IClass<T> type;
+    final IClass<T> type;
 
-    List<ILocal<?>> params;
+    final List<ILocal<?>> params;
 
     public NewInstance(IMethod<T, Void> constructor, ILocal<? extends T> resultTo, ILocal<?>... params){
       checkStack(this, params);
@@ -768,9 +770,9 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class NewArray<T> implements INewArray<T>{
-    IClass<T> arrCompType;
-    List<ILocal<Integer>> arrayLength;
-    ILocal<?> retTo;
+    final IClass<T> arrCompType;
+    final List<ILocal<Integer>> arrayLength;
+    final ILocal<?> retTo;
 
     public NewArray(IClass<T> arrCompType, List<ILocal<Integer>> arrayLength, ILocal<?> retTo){
       checkStack(this, arrayLength.toArray(new ILocal[0]));
@@ -797,9 +799,9 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   public static class ArrayPut<T> implements IArrayPut<T>{
-    ILocal<T[]> array;
-    ILocal<Integer> index;
-    ILocal<T> value;
+    final ILocal<T[]> array;
+    final ILocal<Integer> index;
+    final ILocal<T> value;
 
     public ArrayPut(ILocal<T[]> array, ILocal<Integer> index, ILocal<T> value){
       checkStack(array, index, value);
@@ -826,9 +828,9 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   public static class ArrayGet<T> implements IArrayGet<T>{
-    ILocal<T[]> array;
-    ILocal<Integer> index;
-    ILocal<T> getTo;
+    final ILocal<T[]> array;
+    final ILocal<Integer> index;
+    final ILocal<T> getTo;
 
     public ArrayGet(ILocal<T[]> array, ILocal<Integer> index, ILocal<T> getTo){
       checkStack(array, index);
@@ -855,8 +857,8 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class LoadConstant<T> implements ILoadConstant<T>{
-    T constant;
-    ILocal<T> resTo;
+    final T constant;
+    final ILocal<T> resTo;
 
     public LoadConstant(T constant, ILocal<T> resTo){
       this.constant = constant;
@@ -875,7 +877,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class MarkLabel implements IMarkLabel{
-    Label label;
+    final Label label;
 
     public MarkLabel(Label label){
       this.label = label;
@@ -888,9 +890,9 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Condition implements ICondition{
-    ILocal<?> condition;
-    CondCode condCode;
-    Label ifJump;
+    final ILocal<?> condition;
+    final CondCode condCode;
+    final Label ifJump;
 
     public Condition(ILocal<?> condition, CondCode condCode, Label ifJump){
       this.condition = condition;
@@ -915,10 +917,10 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Switch<T> implements ISwitch<T>{
-    ILocal<T> target;
-    Map<T, Label> casesMap;
+    final ILocal<T> target;
+    final Map<T, Label> casesMap;
 
-    Label end;
+    final Label end;
 
     boolean isTable;
 
@@ -1007,7 +1009,7 @@ public class CodeBlock<R> implements ICodeBlock<R>{
   }
 
   protected static class Throw<T extends Throwable> implements IThrow<T>{
-    ILocal<T> thr;
+    final ILocal<T> thr;
 
     public Throw(ILocal<T> thr){
       this.thr = thr;

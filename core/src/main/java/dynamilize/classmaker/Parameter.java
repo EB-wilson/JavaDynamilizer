@@ -10,7 +10,7 @@ import java.lang.annotation.ElementType;
 import java.lang.reflect.Method;
 
 public class Parameter<T> extends AnnotatedMember implements AnnotatedElement{
-  IClass<T> type;
+  final IClass<T> type;
   IMethod<?, ?> method;
 
   boolean initialized;

@@ -6,8 +6,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BaseClassLoader extends ClassLoader implements ByteClassLoader{
-  protected Map<String, byte[]> bytecodes = new HashMap<>();
-  protected Map<String, Class<?>> classMap = new HashMap<>();
+  protected final Map<String, byte[]> bytecodes = new HashMap<>();
+  protected final Map<String, Class<?>> classMap = new HashMap<>();
 
   public BaseClassLoader(ClassLoader parent){
     super(parent);

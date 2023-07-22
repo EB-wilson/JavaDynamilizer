@@ -284,11 +284,7 @@ public abstract class DynamicMaker {
               res.setFunction(
                   method.getName(),
                   (self, args) -> {
-                    try {
-                      return ((SuperInvoker) self).invokeSuper(signature, args.args());
-                    } catch (NoSuchMethodException e) {
-                      throw new RuntimeException(e);
-                    }
+                    return ((SuperInvoker) self).invokeSuper(signature, args.args());
                   },
                   method.getParameterTypes()
               );
@@ -1221,6 +1217,6 @@ public abstract class DynamicMaker {
   }
 
   public interface SuperInvoker {
-    Object invokeSuper(String signature, Object... args) throws NoSuchMethodException;
+    Object invokeSuper(String signature, Object... args);
   }
 }

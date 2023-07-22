@@ -151,7 +151,7 @@ public abstract class ProxyMaker{
    * @param args 实参列表
    *
    * @return 返回值*/
-  protected abstract Object invoke(DynamicObject<?> proxy, FuncMarker method, ArgumentList args) throws Throwable;
+  protected abstract Object invoke(DynamicObject<?> proxy, FuncMarker method, ArgumentList args);
 
   /**异常处理器，当代理运行中发生任何异常都会转入此方法进行处理，默认直接封装为RuntimeException抛出
    *

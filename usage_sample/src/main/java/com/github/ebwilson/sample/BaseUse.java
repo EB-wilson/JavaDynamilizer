@@ -4,10 +4,6 @@ import dynamilize.*;
 import dynamilize.annotation.AspectInterface;
 import dynamilize.annotation.Super;
 import dynamilize.annotation.This;
-import dynamilize.classmaker.ASMGenerator;
-import dynamilize.classmaker.AbstractClassGenerator;
-import dynamilize.classmaker.BaseClassLoader;
-import dynamilize.classmaker.ClassInfo;
 
 import java.util.Date;
 import java.util.HashMap;

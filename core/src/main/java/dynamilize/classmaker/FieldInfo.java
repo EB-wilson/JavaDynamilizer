@@ -9,9 +9,9 @@ import java.lang.annotation.ElementType;
 import java.lang.reflect.Modifier;
 
 public class FieldInfo<T> extends AnnotatedMember implements IField<T>{
-  IClass<?> owner;
-  IClass<T> type;
-  Object initial;
+  final IClass<?> owner;
+  final IClass<T> type;
+  final Object initial;
   boolean initialized;
 
   public FieldInfo(ClassInfo<?> owner, int modifiers, String name, IClass<T> type, Object initial){

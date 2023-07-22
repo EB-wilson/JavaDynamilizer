@@ -1,10 +1,9 @@
 package com.github.ebwilson.sample.aop;
 
-import dynamilize.*;
-import dynamilize.classmaker.ASMGenerator;
-import dynamilize.classmaker.AbstractClassGenerator;
-import dynamilize.classmaker.BaseClassLoader;
-import dynamilize.classmaker.ClassInfo;
+import dynamilize.DynamicClass;
+import dynamilize.DynamicFactory;
+import dynamilize.DynamicMaker;
+import dynamilize.ProxyMaker;
 
 import java.util.ArrayList;
 import java.util.HashMap;

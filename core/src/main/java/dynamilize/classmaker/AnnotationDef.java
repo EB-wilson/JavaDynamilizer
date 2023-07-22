@@ -15,7 +15,7 @@ import java.util.Map;
 public class AnnotationDef<A extends Annotation> implements IAnnotation<A>{
   IClass<A> typeClass;
 
-  AnnotationType<A> annoType;
+  final AnnotationType<A> annoType;
   Map<String, Object> pairs;
 
   A anno;
