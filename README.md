@@ -5,7 +5,7 @@
 
     dependencies {
       ......
-	  implementation 'com.github.EB-wilson.JavaDynamilizer:JavaDynamilizer:$version'
+	  implementation 'com.github.EB-wilson.JavaDynamilizer:core:$version'
 	  implementation 'com.github.EB-wilson.JavaDynamilizer:baseimpl:$version'//基础的内部实现，若您需要自定义实现抽象层的话，这个模块就并不是必要的
       ......
 	}
