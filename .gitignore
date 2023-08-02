@@ -2,3 +2,6 @@
 /.gradle/
 /build/
 /build/classes/java/Test/
+core/build
+usage_sample/build
+baseimpl/build

@@ -121,7 +121,6 @@ public abstract class DynamicMaker {
 
   /**
    * 构造一个派生自{@link Object}的全委托动态实例
-   * <p>给出的{@linkplain AspectInterface 切面接口}表会决定这个实例被动态化的行为，若为null（<strong>非空数组，空数组表明不执行委托</strong>）则为全委托。
    *
    * @see DynamicMaker#newInstance(Class, Class[], Class[], DynamicClass, Object...)
    */
@@ -131,7 +130,6 @@ public abstract class DynamicMaker {
 
   /**
    * 从给出的参数列表构造一个全委托动态实例
-   * <p>给出的{@linkplain AspectInterface 切面接口}表会决定这个实例被动态化的行为，若为null（<strong>非空数组，空数组表明不执行委托</strong>）则为全委托。
    *
    * @see DynamicMaker#newInstance(Class, Class[], Class[], DynamicClass, Object...)
    */
@@ -153,12 +151,11 @@ public abstract class DynamicMaker {
 
   /**
    * 用给出的构造函数参数构造全委托动态类的实例，参数表必须可以在委托的java类型中存在匹配的可用构造器。实例无额外接口，类型委托由参数确定
-   * <p>给出的{@linkplain AspectInterface 切面接口}表会决定这个实例被动态化的行为，若为null（<strong>非空数组，空数组表明不执行委托</strong>）则为全委托。
    *
    * @see DynamicMaker#newInstance(Class, Class[], Class[], DynamicClass, Object...)
    */
   public <T> DynamicObject<T> newInstance(Class<T> base, DynamicClass dynamicClass, Object... args) {
-    return newInstance(base, EMPTY_CLASSES, dynamicClass, null, args);
+    return newInstance(base, EMPTY_CLASSES, null, dynamicClass, args);
   }
 
   /**
