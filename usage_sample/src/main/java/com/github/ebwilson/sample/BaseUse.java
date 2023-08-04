@@ -1,9 +1,9 @@
 package com.github.ebwilson.sample;
 
 import dynamilize.*;
-import dynamilize.annotation.AspectInterface;
-import dynamilize.annotation.Super;
-import dynamilize.annotation.This;
+import dynamilize.runtimeannos.AspectInterface;
+import dynamilize.runtimeannos.Super;
+import dynamilize.runtimeannos.This;
 
 import java.util.Date;
 import java.util.HashMap;

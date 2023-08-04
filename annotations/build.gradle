@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+}
+apply plugin: 'maven-publish'
+
+sourceSets.main.java.srcDirs = ["src/main/java"]
+sourceSets.test.java.srcDirs = ["src/test/java"]
+
+repositories {
+    mavenCentral()
+    maven{ url 'https://www.jitpack.io' }
+}
+
+sourceCompatibility = 17
+targetCompatibility = 8
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs.addAll([
+        "--release", "8"
+    ])
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = 'com.github.EB-wilson.JavaDynamilizer'
+            artifactId = 'annotations'
+            version = "$JDERVersion"
+            from components.java
+        }
+    }
+}
+
+dependencies {
+    compileOnly project(":core")
+
+    annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.4'
+}

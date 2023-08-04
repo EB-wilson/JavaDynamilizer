@@ -3,12 +3,24 @@ plugins {
 }
 
 repositories {
+    maven{ url 'https://www.jitpack.io' }
+    mavenLocal()
     mavenCentral()
+}
+
+tasks.withType(JavaCompile){
+    sourceCompatibility = 17
+    targetCompatibility = 17
+    options.encoding = "UTF-8"
 }
 
 dependencies {
     implementation project(":core")
     implementation project(":baseimpl")
+    implementation project(":annotations")
+
+    annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.4'
+    annotationProcessor project(":apt")
 }
 
 test {

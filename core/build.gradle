@@ -11,6 +11,9 @@ repositories {
   maven{ url 'https://www.jitpack.io' }
 }
 
+sourceCompatibility = 17
+targetCompatibility = 8
+
 tasks.withType(JavaCompile) {
   options.compilerArgs.addAll([
       "--release", "8"
@@ -32,5 +35,5 @@ dependencies {
   implementation 'org.ow2.asm:asm:9.3'
   apiElements 'org.ow2.asm:asm:9.3'
 
-  annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
+  annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.4'
 }

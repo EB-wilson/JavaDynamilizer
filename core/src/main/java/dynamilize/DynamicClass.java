@@ -1,6 +1,6 @@
 package dynamilize;
 
-import dynamilize.annotation.Exclude;
+import dynamilize.runtimeannos.Exclude;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -156,7 +156,7 @@ public class DynamicClass{
    * <ul>
    * <li><strong>方法</strong>：为动态类型描述实例共有方法，对于同名同参数的方法若重复传入，则旧的方法会被新的覆盖。
    * <p>方法样版会创建为方法入口，当实例的此方法被调用时实际上调用会被转入这个样版方法，this指针会作为一个参数被传递（可选）
-   * <p>要接收this指针，你需要使用{@link dynamilize.annotation.This}注解标记样版方法的第一个参数且参数应当为final，
+   * <p>要接收this指针，你需要使用{@link dynamilize.runtimeannos.This}注解标记样版方法的第一个参数且参数应当为final，
    * 被标记为this指针的参数类型必须为可分配类型（动态实例可确保已实现了接口DynamicObject），此参数不会占据参数表匹配位置：
    * <p>例如方法<pre>{@code sample(@This final DynamicObject self, String str)}</pre>可以正确的匹配到对象的函数<pre>{@code sample(String str)}</pre>
    * 若方法带有final修饰符（尽管这可能会让你收到IDE环境的警告），则此方法在类的行为中将变得不可变更，但是对于对象的此函数依然可以正常替换
@@ -245,19 +245,17 @@ public class DynamicClass{
   /**常量模式设置变量初始值，行为与{@link DynamicClass#visitClass(Class,JavaHandleHelper)}字段部分相同
    *
    * @param name 变量名称
-   * @param value 常量值
-   * @param isConst 此变量是否是一个不可变常量*/
-  public void setVariable(String name, Object value, boolean isConst){
-    setVariable(name, () -> value, isConst);
+   * @param value 常量值*/
+  public void setVariable(String name, Object value){
+    setVariable(name, () -> value);
   }
 
   /**函数模式设置变量初始化工厂，行为与{@link DynamicClass#visitClass(Class,JavaHandleHelper)}字段部分相同
    *
    * @param name 变量名称
-   * @param prov 生产变量初始值的工厂函数
-   * @param isConst 此变量是否是一个不可变常量*/
-  public void setVariable(String name, Initializer.Producer<?> prov, boolean isConst){
-    varInit.put(name, new Initializer<>(prov, isConst));
+   * @param prov 生产变量初始值的工厂函数*/
+  public void setVariable(String name, Initializer.Producer<?> prov){
+    varInit.put(name, new Initializer<>(prov));
   }
 
   @SuppressWarnings({"unchecked"})
@@ -269,8 +267,7 @@ public class DynamicClass{
       throw new RuntimeException(e);
     }
 
-    varInit.put(field.getName(), new Initializer<>(value instanceof Initializer.Producer? (Initializer.Producer<? super Object>) value: () -> value,
-        Modifier.isFinal(field.getModifiers())));
+    varInit.put(field.getName(), new Initializer<>(value instanceof Initializer.Producer? (Initializer.Producer<? super Object>) value: () -> value));
   }
 
   private void checkFinalized(){

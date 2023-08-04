@@ -101,7 +101,7 @@ public abstract class PackageAccHandler {
   }
 
   protected boolean shouldOpen(Class<?> checking){
-    if (checking.getPackageName().startsWith("java.")) return false;
+    if (checking.getPackage().getName().startsWith("java.")) return false;
 
     for (Method method : checking.getDeclaredMethods()) {
       if ((method.getModifiers() & PAC_PRI_FLAGS) == 0){

@@ -36,7 +36,7 @@ public class DataPool{
 
     while(curr != null){
       for(Map.Entry<String, Initializer<?>> entry: curr.getVarInit().entrySet()){
-        if(varSetted.add(entry.getKey())) self.setVar(entry.getKey(), entry.getValue());
+        if(varSetted.add(entry.getKey())) self.setVar(entry.getKey(), entry.getValue().getInit());
       }
 
       curr = curr.superDyClass();

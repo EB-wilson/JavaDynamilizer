@@ -1,4 +1,4 @@
-package dynamilize.annotation;
+package dynamilize.runtimeannos;
 
 import dynamilize.DynamicClass;
 

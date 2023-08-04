@@ -1,23 +1,23 @@
 package dynamilize;
 
-import dynamilize.annotation.AspectInterface;
 import dynamilize.classmaker.*;
 import dynamilize.classmaker.code.*;
 import dynamilize.classmaker.code.annotation.AnnotationType;
+import dynamilize.runtimeannos.AspectInterface;
+import dynamilize.runtimeannos.FuzzyMatch;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import static dynamilize.classmaker.ClassInfo.*;
 import static dynamilize.classmaker.CodeBlock.stack;
+import static dynamilize.runtimeannos.FuzzyMatch.Exact.INSTANCE;
 
 /**
  * 动态类型运作的核心工厂类型，用于将传入的动态类型与委托基类等构造出动态委托类型以及其实例。
@@ -95,8 +95,8 @@ public abstract class DynamicMaker {
   private static final Stack<Class<?>> INTERFACE_STACK = new Stack<>();
   private static final Class[] EMPTY_CLASSES = new Class[0];
   public static final ILocal[] LOCALS_EMP = new ILocal[0];
-  public static final HashSet<FunctionType> EMP_SET = new HashSet<>();
-  public static final HashMap<String, Object> EMP_MAP = new HashMap<>();
+  public static final HashSet EMP_SET = new HashSet<>();
+  public static final HashMap EMP_MAP = new HashMap<>();
   public static final String ANY = "ANY";
   private final JavaHandleHelper helper;
 
@@ -280,9 +280,7 @@ public abstract class DynamicMaker {
               String signature = FunctionType.signature(method.getName(), method.getParameterTypes());
               res.setFunction(
                   method.getName(),
-                  (self, args) -> {
-                    return ((SuperInvoker) self).invokeSuper(signature, args.args());
-                  },
+                  (self, args) -> ((SuperInvoker) self).invokeSuper(signature, args.args()),
                   method.getParameterTypes()
               );
             }
@@ -354,7 +352,7 @@ public abstract class DynamicMaker {
    * 与{@link DynamicMaker#makeClassInfo(Class, Class[], Class[])}的行为相似，但需要将部分行为适应到已经具备委托行为的超类
    */
   @SuppressWarnings({"unchecked"})
-  protected <T> ClassInfo<? extends T> makeClassInfoOnDynmaic(Class<T> baseClass, Class<?>[] interfaces, Class<?>[] aspects) {
+  protected <T> ClassInfo<? extends T> makeClassInfoOnDynamic(Class<T> baseClass, Class<?>[] interfaces, Class<?>[] aspects) {
     LinkedHashSet<ClassInfo<?>> inter = new LinkedHashSet<>();
     inter.add(asType(DynamicObject.class));
     inter.add(asType(SuperInvoker.class));
@@ -365,7 +363,7 @@ public abstract class DynamicMaker {
 
     INTERFACE_STACK.clear();
     INTERFACE_TEMP.clear();
-    HashMap<String, HashSet<FunctionType>> aspectPoints = new HashMap<>();
+    HashMap<String, HashMap<FunctionType, FuzzyMatcher>> aspectPoints = new HashMap<>();
     if (aspects != null) {
       for (Class<?> i : aspects) {
         inter.add(asType(i));
@@ -386,7 +384,29 @@ public abstract class DynamicMaker {
             if (method.isDefault())
               throw new IllegalHandleException("aspect interface must be full-abstract, but method " + method + " in " + i + " was implemented");
 
-            aspectPoints.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
+            aspectPoints.computeIfAbsent(method.getName(), e -> new HashMap())
+                .computeIfAbsent(FunctionType.from(method), e -> {
+                  FuzzyMatch match = method.getAnnotation(FuzzyMatch.class);
+                  java.lang.reflect.Parameter[] parameters = method.getParameters();
+                  Annotation[] argMatchers = new Annotation[parameters.length];
+
+                  if (match != null) {
+                    for (int l = 0; l < parameters.length; l++) {
+                      Annotation[] alternatives = parameters[l].getAnnotations();
+                      for (Annotation ann : alternatives) {
+                        if (ann instanceof FuzzyMatch.AnyType || ann instanceof FuzzyMatch.TypeAssignable || ann instanceof FuzzyMatch.Exact) {
+                          if (argMatchers[l] != null)
+                            throw new IllegalHandleException("cannot declare parameter matcher twice on a parameter");
+
+                          argMatchers[l] = ann;
+                        }
+                        else argMatchers[l] = INSTANCE;
+                      }
+                    }
+                  }
+
+                  return new FuzzyMatcher(parameters, match, argMatchers);
+                });
           }
         }
       }
@@ -468,7 +488,11 @@ public abstract class DynamicMaker {
             Arrays.stream(method.getParameterTypes()).map(ClassInfo::asType).toArray(ClassInfo[]::new)
         ) : null;
 
-        if (!aspectPoints.containsKey(ANY) && !aspectPoints.getOrDefault(method.getName(), EMP_SET).contains(FunctionType.from(method))) {
+        if (!aspectPoints.containsKey(ANY) && !aspectPoints.getOrDefault(method.getName(), EMP_MAP).containsKey(FunctionType.from(method))
+            && aspectPoints.getOrDefault(method.getName(), ((HashMap<FunctionType, FuzzyMatcher>) EMP_MAP)).values().stream().noneMatch(e -> e.match(method,
+            INTERFACE_TEMP.contains(interf),
+            superMethod == null))
+        ){
           if (superMethod == null)
             throw new IllegalHandleException("method " + method + " in " + interf + " was abstract, but no aspects handle this action");
 
@@ -492,7 +516,8 @@ public abstract class DynamicMaker {
         //   methodIndex.put(*signature*, *index*);
         //   ...
         // }
-        genCinit(method, clinit, funType, methodIndex, callSuperCaseMap.get(superMethod));
+        Integer index = callSuperCaseMap.get(superMethod);
+        if (index != null) genCinit(method, clinit, funType, methodIndex, index);
 
         // @DynamicMethod
         // public *returnType* *name*(*parameters*){
@@ -577,7 +602,7 @@ public abstract class DynamicMaker {
   @SuppressWarnings({"unchecked", "rawtypes"})
   protected <T> ClassInfo<? extends T> makeClassInfo(Class<T> baseClass, Class<?>[] interfaces, Class<?>[] aspects) {
     if (baseClass.getAnnotation(DynamicType.class) != null)
-      return makeClassInfoOnDynmaic(baseClass, interfaces, aspects);
+      return makeClassInfoOnDynamic(baseClass, interfaces, aspects);
 
     LinkedHashSet<ClassInfo<?>> inter = new LinkedHashSet<>();
     inter.add(asType(DynamicObject.class));
@@ -589,7 +614,7 @@ public abstract class DynamicMaker {
 
     INTERFACE_STACK.clear();
     INTERFACE_TEMP.clear();
-    HashMap<String, HashSet<FunctionType>> aspectPoints = new HashMap<>();
+    HashMap<String, HashMap<FunctionType, FuzzyMatcher>> aspectPoints = new HashMap<>();
     if (aspects != null) {
       for (Class<?> i : aspects) {
         inter.add(asType(i));
@@ -613,7 +638,29 @@ public abstract class DynamicMaker {
             if (method.isDefault())
               throw new IllegalHandleException("aspect interface must be full-abstract, but method " + method + " in " + i + " was implemented");
 
-            aspectPoints.computeIfAbsent(method.getName(), e -> new HashSet<>()).add(FunctionType.from(method));
+            aspectPoints.computeIfAbsent(method.getName(), e -> new HashMap())
+                .computeIfAbsent(FunctionType.from(method), e -> {
+                  FuzzyMatch match = method.getAnnotation(FuzzyMatch.class);
+                  java.lang.reflect.Parameter[] parameters = method.getParameters();
+                  Annotation[] argMatchers = new Annotation[parameters.length];
+
+                  if (match != null) {
+                    for (int l = 0; l < parameters.length; l++) {
+                      Annotation[] alternatives = parameters[l].getAnnotations();
+                      for (Annotation ann : alternatives) {
+                        if (ann instanceof FuzzyMatch.AnyType || ann instanceof FuzzyMatch.TypeAssignable || ann instanceof FuzzyMatch.Exact) {
+                          if (argMatchers[l] != null)
+                            throw new IllegalHandleException("cannot declare parameter matcher twice on a parameter");
+
+                          argMatchers[l] = ann;
+                        }
+                        else argMatchers[l] = INSTANCE;
+                      }
+                    }
+                  }
+
+                  return new FuzzyMatcher(parameters, match, argMatchers);
+                });
           }
         }
       }
@@ -759,7 +806,13 @@ public abstract class DynamicMaker {
             Arrays.stream(method.getParameterTypes()).map(ClassInfo::asType).toArray(ClassInfo[]::new)
         ) : null;
 
-        if (!aspectPoints.containsKey(ANY) && !aspectPoints.getOrDefault(method.getName(), EMP_SET).contains(FunctionType.from(method))) {
+        Class<?> finalCurr = curr;
+        if (!aspectPoints.containsKey(ANY) && !aspectPoints.getOrDefault(method.getName(), EMP_MAP).containsKey(FunctionType.from(method))
+            && aspectPoints.getOrDefault(method.getName(), ((HashMap<FunctionType, FuzzyMatcher>) EMP_MAP)).values().stream().noneMatch(e -> e.match(method,
+              finalCurr == baseClass || INTERFACE_TEMP.contains(finalCurr),
+              superMethod == null
+            ))
+        ) {
           if (superMethod == null)
             throw new IllegalHandleException("method " + method + " in " + curr + " was abstract, but no aspects handle this action");
 
@@ -783,7 +836,8 @@ public abstract class DynamicMaker {
         //   methodIndex.put(*signature*, *index*);
         //   ...
         // }
-        genCinit(method, clinit, funType, methodIndex, callSuperCaseMap.get(superMethod));
+        Integer index = callSuperCaseMap.get(superMethod);
+        if (index != null) genCinit(method, clinit, funType, methodIndex, index);
 
         // @DynamicMethod
         // public *returnType* *name*(*parameters*){
@@ -1002,7 +1056,7 @@ public abstract class DynamicMaker {
     code.markLabel(end);
 
     ILocal<String> msg = code.local(STRING_TYPE);
-    code.loadConstant(stack(STRING_TYPE), "no such method signature with ");
+    code.loadConstant(stack(STRING_TYPE), "no such method in baseclass signature with ");
     code.operate(stack(STRING_TYPE), IOperate.OPCode.ADD, code.getRealParam(0), msg);
     code.newInstance(
         NOSUCH_METHOD.getConstructor(STRING_TYPE),
@@ -1012,7 +1066,7 @@ public abstract class DynamicMaker {
     code.thr(stack(NOSUCH_METHOD));
   }
 
-  private static void genCinit(Method method, CodeBlock<Void> clinit, FieldInfo<FunctionType> funType, FieldInfo<HashMap> methodIndex, Integer callSuperCaseMap) {
+  private static void genCinit(Method method, CodeBlock<Void> clinit, FieldInfo<FunctionType> funType, FieldInfo<HashMap> methodIndex, int callSuperIndex) {
     String signature = FunctionType.signature(method);
     clinit.loadConstant(stack(INT_TYPE), method.getParameterCount());
     clinit.newArray(
@@ -1042,7 +1096,7 @@ public abstract class DynamicMaker {
     clinit.assign(null, methodIndex, stack(HASH_MAP_TYPE));
     clinit.loadConstant(stack(STRING_TYPE), signature);
 
-    clinit.loadConstant(stack(INT_TYPE), callSuperCaseMap);
+    clinit.loadConstant(stack(INT_TYPE), callSuperIndex);
     clinit.invoke(
         null,
         VALUE_OF,
@@ -1196,6 +1250,44 @@ public abstract class DynamicMaker {
    * @return 对全方法进行动态委托的类型
    */
   protected abstract <T> Class<? extends T> generateClass(Class<T> baseClass, Class<?>[] interfaces, Class<?>[] aspects);
+
+  protected static class FuzzyMatcher{
+    java.lang.reflect.Parameter[] parameters;
+    FuzzyMatch matcher;
+    Annotation[] argsMatcher;
+
+    public FuzzyMatcher(java.lang.reflect.Parameter[] parameters, FuzzyMatch match, Annotation[] argMatchers) {
+      this.parameters = parameters;
+      this.matcher = match;
+      this.argsMatcher = argMatchers;
+    }
+
+    public boolean match(Method method, boolean inBase, boolean isAbstract) {
+      if (matcher == null) return false;
+
+      if (!((matcher.inBaseClass() && inBase) || (matcher.inSuperClass() && !inBase))) return false;
+      if (matcher.abstractOnly() && !isAbstract) return false;
+      if (matcher.anySameName()) return true;
+
+      java.lang.reflect.Parameter[] params = method.getParameters();
+      if (argsMatcher.length != params.length) return false;
+      for (int i = 0; i < params.length; i++) {
+        if (argsMatcher[i] instanceof FuzzyMatch.AnyType a){
+          if (!Pattern.matches(a.value(), method.getName())) return false;
+        }
+        else if (argsMatcher[i] instanceof FuzzyMatch.TypeAssignable a){
+          if (!Pattern.matches(a.value(), method.getName())) return false;
+          if (!parameters[i].getType().isAssignableFrom(params[i].getType())) return false;
+        }
+        else if (argsMatcher[i] instanceof FuzzyMatch.Exact e){
+          if (parameters[i].getType() != params[i].getType()) return false;
+        }
+        else throw new IllegalHandleException("what?");
+      }
+
+      return true;
+    }
+  }
 
   /**
    * 动态委托类型标识，由此工厂生成的动态委托类型都会具有此注解标识

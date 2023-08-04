@@ -3,3 +3,6 @@ include 'core'
 include 'usage_sample'
 include 'baseimpl'
 
+include 'apt'
+include 'annotations'
+

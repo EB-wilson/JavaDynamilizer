@@ -1,7 +1,7 @@
 package dynamilize;
 
-import dynamilize.annotation.Super;
-import dynamilize.annotation.This;
+import dynamilize.runtimeannos.Super;
+import dynamilize.runtimeannos.This;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

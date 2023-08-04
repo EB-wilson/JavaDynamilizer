@@ -1,0 +1,39 @@
+processor: DynamicContextProcessor (full class name: dynamilize.annoprocessor.DynamicContextProcessor)
+time: Fri Aug 04 19:27:52 CST 2023
+
+-----------------------------------------
+annotation: dynamilize.annotations.DynamicContext
+-----------------------------------------
+
+> class: com.github.ebwilson.sample_zh.Test
+ 1| 
+ 2| @DynamicContext
+ 3| public class Test {
+ 4|     
+ 5|     public Test() {
+ 6|         super();
+ 7|     }
+ 8|     private static final java.lang.Class[] $TYPE_LIST_CONST@0 = new Class[]{Map.class};
+ 9|     @ContextMaker
+10|     private static final DynamicMaker maker = new DynamicFactory().setGenerator(new ASMGenerator(new BaseClassLoader(Test.class.getClassLoader()), Opcodes.V1_8){
+11|         
+12|         @Override
+13|         public byte[] genByteCode(ClassInfo<?> classInfo) {
+14|             byte[] bytes = super.genByteCode(classInfo);
+15|             try (final FileOutputStream fo = new FileOutputStream(classInfo.name() + ".class");) {
+16|                 fo.write(bytes);
+17|             } catch (IOException e) {
+18|                 throw new RuntimeException(e);
+19|             }
+20|             return bytes;
+21|         }
+22|     }).setDefaultHelper().getMaker();
+23|     
+24|     public static void main(String[] args) {
+25|         @NewDynamic(dynClassName = "dyc", impls = {Map.class})
+26|         DynamicObject<Object> a = maker.newInstance(Object.class, $TYPE_LIST_CONST@0, (Class[])null, dynamilize.DynamicClass.get("dyc"));
+27|         a.setVar("a", 18);
+28|         System.out.println(a.getVar("a", 0));
+29|     }
+30| }
+

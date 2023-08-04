@@ -30,7 +30,7 @@ publishing {
 dependencies {
   compileOnly project(":core")
 
-  annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.1'
+  annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.4'
 }
 
 tasks.withType(JavaCompile) {

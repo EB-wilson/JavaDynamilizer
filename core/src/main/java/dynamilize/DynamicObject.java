@@ -286,4 +286,40 @@ public interface DynamicObject<Self>{
     }
     var.set(this, value);
   }
+
+  default boolean calculateVar(String name, Calculator.BoolCalculator calculator){
+    boolean res;
+    setVar(name, res = calculator.calculate(getVar(name)));
+    return res;
+  }
+  default byte calculateVar(String name, Calculator.ByteCalculator calculator){
+    byte res;
+    setVar(name, res = calculator.calculate(getVar(name)));
+    return res;
+  }
+  default short calculateVar(String name, Calculator.ShortCalculator calculator){
+    short res;
+    setVar(name, res = calculator.calculate(getVar(name)));
+    return res;
+  }
+  default int calculateVar(String name, Calculator.IntCalculator calculator){
+    int res;
+    setVar(name, res = calculator.calculate(getVar(name)));
+    return res;
+  }
+  default long calculateVar(String name, Calculator.LongCalculator calculator){
+    long res;
+    setVar(name, res = calculator.calculate(getVar(name)));
+    return res;
+  }
+  default float calculateVar(String name, Calculator.FloatCalculator calculator){
+    float res;
+    setVar(name, res = calculator.calculate(getVar(name)));
+    return res;
+  }
+  default double calculateVar(String name, Calculator.DoubleCalculator calculator){
+    double res;
+    setVar(name, res = calculator.calculate(getVar(name)));
+    return res;
+  }
 }
