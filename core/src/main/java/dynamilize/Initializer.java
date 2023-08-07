@@ -11,7 +11,7 @@ public class Initializer<T>{
     return init.get();
   }
 
-  interface Producer<T>{
+  public interface Producer<T>{
     T get();
 
 

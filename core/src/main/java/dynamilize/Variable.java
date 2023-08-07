@@ -2,14 +2,39 @@ package dynamilize;
 
 public class Variable implements IVariable{
   private final String name;
+  private final Initializer<?> init;
 
   public Variable(String name){
     this.name = name;
+    this.init = null;
+  }
+
+  public Variable(String name, Initializer<?> init){
+    this.name = name;
+    this.init = init;
   }
 
   @Override
   public String name(){
     return name;
+  }
+
+  @Override
+  public void init(DynamicObject<?> object) {
+    Object value = init == null? null: init.getInit();
+    if (value == null) return;
+    if (value.getClass().isPrimitive()){
+      if (value instanceof Byte b) set(object, b.byteValue());
+      else if (value instanceof Short b) set(object, b.shortValue());
+      else if (value instanceof Integer b) set(object, b.intValue());
+      else if (value instanceof Character b) set(object, b.charValue());
+      else if (value instanceof Long b) set(object, b.longValue());
+      else if (value instanceof Float b) set(object, b.floatValue());
+      else if (value instanceof Double b) set(object, b.doubleValue());
+      else if (value instanceof Boolean b) set(object, b.booleanValue());
+      else throw new IllegalHandleException("how do you cased this?");
+    }
+    else set(object, value);
   }
 
   @Override

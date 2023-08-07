@@ -35,8 +35,10 @@ public class DataPool{
     HashSet<String> varSetted = new HashSet<>();
 
     while(curr != null){
-      for(Map.Entry<String, Initializer<?>> entry: curr.getVarInit().entrySet()){
-        if(varSetted.add(entry.getKey())) self.setVar(entry.getKey(), entry.getValue().getInit());
+      for (IVariable var : curr.getVariables()) {
+        if (varSetted.add(var.name())){
+          var.init(self);
+        }
       }
 
       curr = curr.superDyClass();

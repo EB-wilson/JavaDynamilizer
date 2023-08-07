@@ -31,6 +31,9 @@ public class JavaVariable implements IVariable{
     return field.getName();
   }
 
+  @Override
+  public void init(DynamicObject<?> object) { /*no action*/ }
+
   @SuppressWarnings("unchecked")
   @Override
   public <T> T get(DynamicObject<?> obj){

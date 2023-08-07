@@ -5,14 +5,13 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.*;
-import com.sun.tools.javac.comp.Annotate;
-import com.sun.tools.javac.comp.Attr;
-import com.sun.tools.javac.comp.Check;
+import com.sun.tools.javac.comp.*;
 import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import sun.misc.Unsafe;
@@ -37,8 +36,9 @@ public abstract class BaseProcessor extends AbstractProcessor{
 
   private static final Method exportNative;
 
-  final HashMap<TypeElement, ArrayList<JCTree.JCClassDecl>> processedMap = new HashMap<>();
+  final HashMap<TypeElement, ArrayList<JCTree.JCCompilationUnit>> processedMap = new HashMap<>();
 
+  Context context;
   JavacTrees trees;
   Attr attr;
   TreeMaker maker;
@@ -47,12 +47,18 @@ public abstract class BaseProcessor extends AbstractProcessor{
   ParserFactory parsers;
   Symtab symtab;
   Annotate annotates;
+  Enter enter;
   Check check;
 
   Elements elements;
   Filer filer;
  
   Messager messager;
+
+  Type DynamicMakerType;
+  Type DynamicClassType;
+  Type DynamicObjectType;
+  Type ReadOnlyPoolType;
 
   static final Unsafe unsafe;
 
@@ -151,7 +157,7 @@ public abstract class BaseProcessor extends AbstractProcessor{
     filer = processingEnv.getFiler();
     messager = processingEnv.getMessager();
 
-    Context context = ((JavacProcessingEnvironment)processingEnv).getContext();
+    context = ((JavacProcessingEnvironment)processingEnv).getContext();
     attr = Attr.instance(context);
     trees = JavacTrees.instance(context);
     maker = TreeMaker.instance(context);
@@ -159,8 +165,14 @@ public abstract class BaseProcessor extends AbstractProcessor{
     types = Types.instance(context);
     parsers = ParserFactory.instance(context);
     symtab = Symtab.instance(context);
+    enter = Enter.instance(context);
     annotates = Annotate.instance(context);
     check = Check.instance(context);
+
+    DynamicMakerType = ((Type) elements.getTypeElement("dynamilize.DynamicMaker").asType());
+    DynamicClassType = ((Type) elements.getTypeElement("dynamilize.DynamicClass").asType());
+    DynamicObjectType = ((Type) elements.getTypeElement("dynamilize.DynamicObject").asType());
+    ReadOnlyPoolType = ((Type) elements.getTypeElement("dynamilize.DataPool.ReadOnlyPool").asType());
   }
 
   @Override
@@ -185,14 +197,14 @@ public abstract class BaseProcessor extends AbstractProcessor{
       writer.println(new Date());
       writer.println();
 
-      for(Map.Entry<TypeElement, ArrayList<JCTree.JCClassDecl>> entry: processedMap.entrySet()){
+      for(Map.Entry<TypeElement, ArrayList<JCTree.JCCompilationUnit>> entry: processedMap.entrySet()){
         writer.println("-----------------------------------------");
         writer.print("annotation: ");
         writer.println(entry.getKey().getQualifiedName());
         writer.println("-----------------------------------------\n");
-        for(JCTree.JCClassDecl type: entry.getValue()){
+        for(JCTree.JCCompilationUnit type: entry.getValue()){
 
-          writer.println("> class: " + type.sym.getQualifiedName());
+          writer.println("> class: " + type.sourcefile.getName());
 
           String javaStr = type.toString();
           int blankPad = (int) Math.log10(javaStr.split("\n").length) + 1;
@@ -291,33 +303,36 @@ public abstract class BaseProcessor extends AbstractProcessor{
     RawAnnotationMirrors mirrors = new RawAnnotationMirrors();
     boolean existed = false;
 
-    try {
-      for (JCTree.JCAnnotation anno : annos) {
-        TreePath path = trees.getPath(unit, anno);
-        Symbol.ClassSymbol an = (Symbol.ClassSymbol) trees.getElement(path);
-        if (an.getQualifiedName().equals(names.fromString(annoClazz.getCanonicalName()))) {
-          existed = true;
+    for (JCTree.JCAnnotation anno : annos) {
+      TreePath path = trees.getPath(unit, anno);
+      Symbol.ClassSymbol an = (Symbol.ClassSymbol) trees.getElement(path);
 
-          for (Method attr : annoClazz.getDeclaredMethods()) {
-            if (Modifier.isStatic(attr.getModifiers())) continue;
-            Object val = defaults.get(attr.getName());
-            if (val == null) continue;
+      if (an.getQualifiedName().equals(names.fromString(annoClazz.getCanonicalName()))) {
+        existed = true;
 
-            mirrors.attributes.put(attr.getName(), getAttr(val, attr.getReturnType()));
-          }
+        for (Method attr : annoClazz.getDeclaredMethods()) {
+          if (Modifier.isStatic(attr.getModifiers())) continue;
+          Object val = defaults.get(attr.getName());
+          if (val == null) continue;
 
-          for (JCTree.JCExpression arg : anno.args) {
-            JCTree.JCAssign as = ((JCTree.JCAssign) arg);
-            Name key = ((JCTree.JCIdent) as.lhs).name;
-            Class<?> type = annoClazz.getMethod(key.toString()).getReturnType();
+          mirrors.attributes.put(attr.getName(), getAttr(val, attr.getReturnType()));
+        }
 
-            mirrors.attributes.put(key.toString(), getAttr(as.rhs, type, unit));
-            mirrors.rawTree.put(key.toString(), as.rhs);
-          }
+        Env<AttrContext> env = enter.getTopLevelEnv(unit);
+        Attribute.Compound cmp = annotates.attributeAnnotation(
+            anno,
+            (Type) elements.getTypeElement(names.fromString(annoClazz.getCanonicalName())).asType(),
+            env
+        );
+
+        for (JCTree.JCExpression arg : anno.args) {
+          JCTree.JCAssign as = ((JCTree.JCAssign) arg);
+          Name key = ((JCTree.JCIdent) as.lhs).name;
+
+          mirrors.attributes.put(key.toString(), cmp.member(key));
+          mirrors.rawTree.put(key.toString(), as.rhs);
         }
       }
-    } catch (NoSuchMethodException e) {
-      throw new RuntimeException(e);
     }
 
     return existed? mirrors: null;
@@ -358,44 +373,6 @@ public abstract class BaseProcessor extends AbstractProcessor{
     throw new RuntimeException("unknown constant value");
   }
 
-  protected Attribute getAttr(JCTree tree, Class<?> type, JCTree.JCCompilationUnit unit){
-    Type t = ((Symbol.ClassSymbol) elements.getTypeElement((type.isArray()? type.componentType(): type).getCanonicalName())).type;
-
-    if (type.isArray()) t = types.makeArrayType(t);
-    if (type.isArray() && tree instanceof JCTree.JCNewArray n){
-      ArrayList<Attribute> arr = new ArrayList<>(n.elems.size());
-      for (JCTree.JCExpression elem : n.elems) {
-        arr.add(getAttr(elem, type.componentType(), unit));
-      }
-      return new Attribute.Array(t, arr.toArray(new Attribute[0]));
-    }
-    else if ((type.isPrimitive() || type == String.class) && tree instanceof JCTree.JCLiteral l){
-      return new Attribute.Constant(t, l.value);
-    }
-    else if (type == Class.class && tree instanceof JCTree.JCFieldAccess f){
-      if (f.selected instanceof JCTree.JCPrimitiveTypeTree p){
-        return new Attribute.Class(types, switch (p.typetag){
-          case VOID -> symtab.voidType.tsym.type;
-          case BOOLEAN -> symtab.booleanType.tsym.type;
-          case BYTE -> symtab.byteType.tsym.type;
-          case SHORT -> symtab.shortType.tsym.type;
-          case INT -> symtab.intType.tsym.type;
-          case LONG -> symtab.longType.tsym.type;
-          case FLOAT -> symtab.floatType.tsym.type;
-          case DOUBLE -> symtab.doubleType.tsym.type;
-          case CHAR -> symtab.charType.tsym.type;
-          default -> throw new IllegalStateException("Unexpected value: " + p.typetag);
-        });
-      }
-      else {
-        TreePath path = trees.getPath(unit, f.selected);
-        return new Attribute.Class(types, trees.getElement(path).type);
-      }
-    }
-
-    throw new RuntimeException("unknown type mark");
-  }
-
   protected <A extends Annotation> AnnotationMirrors getAnnotationParams(Symbol sym, Class<A> annoType){
     AnnotationMirrors mirrors = new AnnotationMirrors();
     boolean existed = false;
@@ -412,8 +389,8 @@ public abstract class BaseProcessor extends AbstractProcessor{
     return existed? mirrors: null;
   }
 
-  protected void genLog(TypeElement annotationType, JCTree.JCClassDecl type){
-    processedMap.computeIfAbsent(annotationType, e -> new ArrayList<>()).add(type);
+  protected void genLog(TypeElement annotationType, JCTree.JCCompilationUnit unit){
+    processedMap.computeIfAbsent(annotationType, e -> new ArrayList<>()).add(unit);
   }
 
   @SuppressWarnings("unchecked")

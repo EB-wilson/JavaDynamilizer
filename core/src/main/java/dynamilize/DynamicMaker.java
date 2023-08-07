@@ -124,7 +124,7 @@ public abstract class DynamicMaker {
    *
    * @see DynamicMaker#newInstance(Class, Class[], Class[], DynamicClass, Object...)
    */
-  public DynamicObject newInstance(DynamicClass dynamicClass) {
+  public DynamicObject<Object> newInstance(DynamicClass dynamicClass) {
     return newInstance(Object.class, dynamicClass);
   }
 
@@ -133,8 +133,7 @@ public abstract class DynamicMaker {
    *
    * @see DynamicMaker#newInstance(Class, Class[], Class[], DynamicClass, Object...)
    */
-  @SuppressWarnings("rawtypes")
-  public DynamicObject newInstance(Class<?>[] interfaces, DynamicClass dynamicClass) {
+  public DynamicObject<Object> newInstance(Class<?>[] interfaces, DynamicClass dynamicClass) {
     return newInstance(Object.class, interfaces, (Class<?>[]) null, dynamicClass);
   }
 
@@ -144,8 +143,7 @@ public abstract class DynamicMaker {
    *
    * @see DynamicMaker#newInstance(Class, Class[], Class[], DynamicClass, Object...)
    */
-  @SuppressWarnings("rawtypes")
-  public DynamicObject newInstance(Class<?>[] interfaces, Class<?>[] aspects, DynamicClass dynamicClass) {
+  public DynamicObject<Object> newInstance(Class<?>[] interfaces, Class<?>[] aspects, DynamicClass dynamicClass) {
     return newInstance(Object.class, interfaces, aspects, dynamicClass);
   }
 

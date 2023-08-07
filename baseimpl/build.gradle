@@ -9,7 +9,7 @@ sourceSets.test.java.srcDirs = ["src/test/java"]
 group = 'com.github.EB-wilson'
 
 sourceCompatibility = 17
-targetCompatibility = 9
+targetCompatibility = 17
 
 repositories {
   mavenCentral()
@@ -34,7 +34,10 @@ dependencies {
 }
 
 tasks.withType(JavaCompile) {
+  sourceCompatibility = 9
+  targetCompatibility = 9
+
   options.compilerArgs.addAll([
-      "--release", "9"
+      "--add-exports", "java.base/jdk.internal.misc=ALL-UNNAMED"
   ])
 }

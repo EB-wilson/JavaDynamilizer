@@ -1,0 +1,56 @@
+processor: ClassDynamilizeProcessor (full class name: dynamilize.annoprocessor.ClassDynamilizeProcessor)
+time: Mon Aug 07 17:39:14 CST 2023
+
+-----------------------------------------
+annotation: dynamilize.annotations.DynamilizeClass
+-----------------------------------------
+
+> class: /home/local/IdeaProjects/JavaDynamilizer/usage_sample/src/main/java/com/github/ebwilson/sample_zh/ADT.java
+ 1| package com.github.ebwilson.sample_zh;
+ 2| 
+ 3| import dynamilize.DynamicFactory;
+ 4| import dynamilize.DynamicMaker;
+ 5| import dynamilize.JavaHandleHelper;
+ 6| import dynamilize.annotations.DynamilizeClass;
+ 7| 
+ 8| @DynamilizeClass
+ 9| public abstract class ADT implements DynamilizeClass.DynamilizedClass<Object> {
+10|     
+11|     public ADT() {
+12|         super();
+13|     }
+14|     @dynamilize.runtimeannos.Exclude
+15|     private static final dynamilize.FunctionType signature#1 = dynamilize.FunctionType.inst(java.lang.String.class, java.lang.String.class);
+16|     @dynamilize.runtimeannos.Exclude
+17|     private static final dynamilize.FunctionType signature#0 = dynamilize.FunctionType.inst();
+18|     @dynamilize.runtimeannos.Exclude
+19|     public static JavaHandleHelper $helper$ = DynamicFactory.getDefault().getHelper();
+20|     @dynamilize.runtimeannos.Exclude
+21|     public static final java.lang.String NAME = "com.github.ebwilson.sample_zh.ADT";
+22|     @dynamilize.runtimeannos.Exclude
+23|     public static final dynamilize.DynamicClass INSTANCE = dynamilize.DynamicClass.visit("com.github.ebwilson.sample_zh.ADT", com.github.ebwilson.sample_zh.ADT.class, null, $helper$);
+24|     
+25|     public static void run(@dynamilize.runtimeannos.This
+26|     dynamilize.DynamicObject<?> self, @dynamilize.runtimeannos.Super
+27|     dynamilize.DataPool.ReadOnlyPool sup) {
+28|         self.invokeFunc(signature#0, "run2");
+29|     }
+30|     
+31|     public static void run1(@dynamilize.runtimeannos.This
+32|     dynamilize.DynamicObject<?> self, @dynamilize.runtimeannos.Super
+33|     dynamilize.DataPool.ReadOnlyPool sup, String arg1) {
+34|         self.invokeFunc(signature#1, "run3", arg1, "no");
+35|     }
+36|     
+37|     public static void run2(@dynamilize.runtimeannos.This
+38|     dynamilize.DynamicObject<?> self, @dynamilize.runtimeannos.Super
+39|     dynamilize.DataPool.ReadOnlyPool sup) {
+40|     }
+41|     
+42|     public static void run3(@dynamilize.runtimeannos.This
+43|     dynamilize.DynamicObject<?> self, @dynamilize.runtimeannos.Super
+44|     dynamilize.DataPool.ReadOnlyPool sup, String arg1, String arg2) {
+45|         self.invokeFunc(signature#0, "run2");
+46|     }
+47| }
+

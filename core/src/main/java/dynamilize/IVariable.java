@@ -3,6 +3,7 @@ package dynamilize;
 public interface IVariable{
   String name();
 
+  void init(DynamicObject<?> object);
   <T> T get(DynamicObject<?> obj);
 
   void set(DynamicObject<?> obj, Object value);

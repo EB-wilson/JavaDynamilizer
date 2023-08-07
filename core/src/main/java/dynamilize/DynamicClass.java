@@ -6,7 +6,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
-import java.util.Map;
 
 /**保存动态对象行为信息的动态类型，描述了对象的共有行为和变量信息。
  * <p>在{@link DynamicMaker}的构造实例方法里使用动态类型构造动态对象，动态对象会具有其类型描述的行为，对于基类与动态类中描述的同一方法会正常的处理覆盖关系。
@@ -56,7 +55,6 @@ public class DynamicClass{
   private final DynamicClass superDyClass;
 
   private final DataPool data;
-  private final Map<String, Initializer<?>> varInit = new HashMap<>();
 
   /**废弃标记，在类型已废弃后，不可再实例化此类型*/
   private boolean isObsoleted;
@@ -84,6 +82,12 @@ public class DynamicClass{
    * @return 一个具有指定名称的动态类实例*/
   public static DynamicClass get(String name){
     return classPool.computeIfAbsent(name, n -> new DynamicClass(n, null));
+  }
+
+  public static DynamicClass visit(String name, Class<?> clazz, DynamicClass superDyClass, JavaHandleHelper helper){
+    DynamicClass res = superDyClass == null? get(name): declare(name, superDyClass);
+    res.visitClass(clazz, helper);
+    return res;
   }
 
   /**创建类型实例，不应从外部调用此方法构造实例*/
@@ -118,10 +122,6 @@ public class DynamicClass{
     checkFinalized();
 
     return superDyClass;
-  }
-
-  public Map<String, Initializer<?>> getVarInit(){
-    return varInit;
   }
 
   public DataPool genPool(DataPool basePool){
@@ -159,12 +159,10 @@ public class DynamicClass{
    * <p>要接收this指针，你需要使用{@link dynamilize.runtimeannos.This}注解标记样版方法的第一个参数且参数应当为final，
    * 被标记为this指针的参数类型必须为可分配类型（动态实例可确保已实现了接口DynamicObject），此参数不会占据参数表匹配位置：
    * <p>例如方法<pre>{@code sample(@This final DynamicObject self, String str)}</pre>可以正确的匹配到对象的函数<pre>{@code sample(String str)}</pre>
-   * 若方法带有final修饰符（尽管这可能会让你收到IDE环境的警告），则此方法在类的行为中将变得不可变更，但是对于对象的此函数依然可以正常替换
    * <p><strong>仅有被替换的方法可以改变实例的行为，对于新增的行为将不会影响已存在的实例的行为，新增行为只会使新产生的实例具有此默认函数</strong>
    *
-   * <li><strong>字段</strong>：为动态类型描述默认变量表，并以字段的当前值作为函数的默认初始化数值。
+   * <li><strong>字段</strong>：为动态类型描述默认变量表，并以字段在动态对象实例化时存储的值作为该变量的初始数据。
    * <p>若字段的类型为{@link dynamilize.Initializer.Producer}，则会将此函数作为值的工厂，初始化动态实例时以函数生产的数据作为变量默认值。
-   * <p>如果字段携带final修饰符，那么此变量将被标记为常量，不可变更。
    * <p><strong>除作为行为样版被访问之外，其他任何时机变量的值变化都不会对类型的行为产生直接影响</strong>
    * </ul>
    * 如果模板里存在不希望被作为样版的字段或者方法，你可以使用{@link Exclude}注解标记此目标以排除。
@@ -255,7 +253,7 @@ public class DynamicClass{
    * @param name 变量名称
    * @param prov 生产变量初始值的工厂函数*/
   public void setVariable(String name, Initializer.Producer<?> prov){
-    varInit.put(name, new Initializer<>(prov));
+    data.setVariable(new Variable(name, new Initializer<>(prov)));
   }
 
   @SuppressWarnings({"unchecked"})
@@ -267,7 +265,13 @@ public class DynamicClass{
       throw new RuntimeException(e);
     }
 
-    varInit.put(field.getName(), new Initializer<>(value instanceof Initializer.Producer? (Initializer.Producer<? super Object>) value: () -> value));
+    data.setVariable(new Variable(field.getName(), new Initializer<>(value instanceof Initializer.Producer? (Initializer.Producer<? super Object>) value: () -> {
+      try {
+        return field.get(null);
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    })));
   }
 
   private void checkFinalized(){
