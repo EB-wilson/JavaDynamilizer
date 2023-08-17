@@ -172,7 +172,7 @@ public class ClassDynamilizeProcessor extends BaseProcessor{
                   Symbol sym = trees.getElement(path);
 
                   if (sym != null && sym.getKind() != ElementKind.PARAMETER
-                  && (sym instanceof Symbol.MethodSymbol || sym instanceof Symbol.VarSymbol) && !Flags.isStatic(sym)) {
+                  && (sym instanceof Symbol.MethodSymbol || (sym instanceof Symbol.VarSymbol v && v.owner instanceof Symbol.ClassSymbol)) && !Flags.isStatic(sym)) {
                     JCTree.JCFieldAccess res = maker.Select(maker.Ident(names._this), sym.name);
                     res.sym = sym;
                     result = res;
@@ -252,16 +252,23 @@ public class ClassDynamilizeProcessor extends BaseProcessor{
                 @Override
                 public void visitSelect(JCTree.JCFieldAccess tree) {
                   if (tree.sym instanceof Symbol.VarSymbol var && isSelfRef(tree)) {
+                    Object def = switch(var.type.getTag()){
+                      case BYTE, INT, DOUBLE, FLOAT, LONG, SHORT, CHAR -> 0;
+                      case BOOLEAN -> false;
+                      default -> null;
+                    };
+
                     result = maker.Apply(
-                        List.nil(),
+                        List.of(maker.Type(var.type)),
                         maker.Select(maker.Ident(self), names.fromString("getVar")),
-                        List.of(
-                            maker.Literal(tree.name.toString()),
-                            maker.Literal(var.type.getTag(), switch(var.type.getTag()){
-                              case BYTE, INT, DOUBLE, FLOAT, LONG, SHORT, CHAR -> 0;
-                              case BOOLEAN -> false;
-                              default -> null;
-                            })
+                        List.from(
+                            def != null? new JCTree.JCExpression[]{
+                                maker.Literal(tree.name.toString()),
+                                maker.Literal(var.type.getTag(), def)
+                            }:
+                            new JCTree.JCExpression[]{
+                                maker.Literal(tree.name.toString())
+                            }
                         )
                     );
                   }
@@ -303,6 +310,7 @@ public class ClassDynamilizeProcessor extends BaseProcessor{
                     }): null;
 
                     tree.args = tree.args.prepend(maker.Literal(ac.name.toString()));
+                    tree.typeargs = List.of(maker.Type(m.getReturnType()));
                     if (signature != null) tree.args = tree.args.prepend(maker.Ident(signature));
                     ac.name = names.fromString("invokeFunc");
                   }
@@ -331,7 +339,7 @@ public class ClassDynamilizeProcessor extends BaseProcessor{
             if (!Flags.isStatic(field.sym)){
               field.mods.flags = (field.mods.flags | Flags.STATIC | Flags.PUBLIC) & ~(Flags.PRIVATE | Flags.PROTECTED);
 
-              if (!(field.init instanceof JCTree.JCLiteral)){
+              if (!(field.init instanceof JCTree.JCLiteral) && field.init != null){
                 field.sym.type = new Type.ClassType(
                     new Type.ClassType(ProducterType.tsym.owner.type, List.nil(), ProducterType.tsym.owner.type.tsym),
                     List.of(new Type.WildcardType(field.sym.type, BoundKind.UNBOUND, ProducterType.tsym)),

@@ -1,26 +1,25 @@
 package com.github.ebwilson.sample_zh.aop;
 
-import dynamilize.DynamicClass;
-import dynamilize.DynamicFactory;
-import dynamilize.DynamicMaker;
-import dynamilize.ProxyMaker;
+import dynamilize.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 /**本篇向您演示该框架进行代理模式AOP的示例，这是一个类似cglib的行为，如果您不了解cglib，那么您可以参考{@link java.lang.reflect.Proxy}，此用法与反射的Proxy类似，但是这并不依赖于切面对象的公共接口*/
 public class ProxyUsage {
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) {
         //获取默认动态工厂
         DynamicMaker maker = DynamicFactory.getDefault();
 
         //创建一个代理工厂，此类工厂将用于创建代理实例，当实例的任意可重写方法被调用时，其都会被捕获并转入声明该工厂时给定的代理函数，如下
-        ProxyMaker proxyMaker = ProxyMaker.getDefault(maker, (proxy, superFunction, arg) -> {
+        ProxyMaker proxyMaker = ProxyMaker.getDefault(maker, (proxy, func, superFunc, arg) -> {
             //调用任何方法时都将调用信息打印到输出流
-            System.out.println("invoking " + superFunction + ", args: " + arg);
+            System.out.println("invoking " + superFunc + ", args: " + arg);
 
             //向上调用被拦截的方法，如果不调用的话此方法会被截断使此次调用无效
-            return superFunction.invoke(proxy, arg);
+            return superFunc.invoke(proxy, arg);
         });
 
         //利用proxyMaker创建代理实例，代理实例的行为都会被代理工厂代理委托到代理函数上
@@ -60,6 +59,22 @@ public class ProxyUsage {
         //测试打印，观察打印结果，分配给动态对象的动态类行为被插入在监视器之前，代理处理器可以正确截断
         builder.add("hello ");
         builder.add("world");
+        System.out.println(builder);
+
+        System.out.println("\n===========sep line==========\n");
+
+        //当然，就像代理的实际使用方法一样，我们可以使用一个代理对象来代为处理对被代理对象的行为调用，例如，我们用前文生成的builder作为代理对象：
+        DynamicObject<ArrayList<String>> dyBuilder = (DynamicObject<ArrayList<String>>) builder;
+        ProxyMaker proxy = ProxyMaker.getDefault(maker, (self, func, superFunc, arg) -> {
+            System.out.println("invoke to proxy object");
+            return func.invoke(dyBuilder, arg);
+        });//直接将所有方法调用重定向到dyBuilder
+        List<String> listProxied = proxy.newProxyInstance(new Class[]{List.class}).objSelf();//创建的被代理的对象不应该超出委托目标的范围，这里使用List接口
+
+        //测试打印
+        listProxied.add("hello world again");
+        System.out.println(builder);
+        listProxied.clear();
         System.out.println(builder);
     }
 }

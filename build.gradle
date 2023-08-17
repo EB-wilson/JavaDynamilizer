@@ -5,7 +5,7 @@ plugins {
 apply plugin: 'maven-publish'
 
 ext{
-  JDERVersion = 'V1.8-A1'
+  JDERVersion = 'V1.8-A3'
 }
 
 group 'com.github.EB-wilson'

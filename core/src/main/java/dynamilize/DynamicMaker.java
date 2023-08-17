@@ -515,7 +515,7 @@ public abstract class DynamicMaker {
         //   ...
         // }
         Integer index = callSuperCaseMap.get(superMethod);
-        if (index != null) genCinit(method, clinit, funType, methodIndex, index);
+        genCinit(method, clinit, funType, methodIndex, index == null? -1: index);
 
         // @DynamicMethod
         // public *returnType* *name*(*parameters*){
@@ -835,7 +835,7 @@ public abstract class DynamicMaker {
         //   ...
         // }
         Integer index = callSuperCaseMap.get(superMethod);
-        if (index != null) genCinit(method, clinit, funType, methodIndex, index);
+        genCinit(method, clinit, funType, methodIndex, index == null? -1: index);
 
         // @DynamicMethod
         // public *returnType* *name*(*parameters*){
@@ -1090,6 +1090,8 @@ public abstract class DynamicMaker {
     );
 
     clinit.assign(null, stack(FUNCTION_TYPE_TYPE), funType);
+
+    if (callSuperIndex == -1) return;
 
     clinit.assign(null, methodIndex, stack(HASH_MAP_TYPE));
     clinit.loadConstant(stack(STRING_TYPE), signature);

@@ -8,8 +8,8 @@ sourceSets.test.java.srcDirs = ["src/test/java"]
 
 group = 'com.github.EB-wilson'
 
-sourceCompatibility = 17
-targetCompatibility = 17
+sourceCompatibility = 16
+targetCompatibility = 16
 
 repositories {
   mavenCentral()

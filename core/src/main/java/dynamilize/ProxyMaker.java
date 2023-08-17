@@ -7,11 +7,11 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 /**代理创建工具，用于生成类似{@linkplain  java.lang.reflect.Proxy java代理工具}的面向切面代理实例，但不同的是这允许从类型进行委托，类似于<i>cglib</i>。
- * <p>通过此工具创建的代理实例会将所有可用（非static/final/private/package private）方法调用转入代理调用处理器，在此工具中被声明为了{@link ProxyMaker#invoke(DynamicObject, FuncMarker, ArgumentList)}])}。
+ * <p>通过此工具创建的代理实例会将所有可用（非static/final/private/package private）方法调用转入代理调用处理器，在此工具中被声明为了{@link ProxyMaker#invoke(DynamicObject, FuncMarker, FuncMarker, ArgumentList)}])}。
  * <p>使用此工具时需要给出一个{@link DynamicMaker}用于构建动态代理实例，尽管可能你需要的只是具备代理行为的{@linkplain DynamicClass 动态类型}。
  * <p>另外，动态类型中声明的函数也会被代理拦截，作用时机与动态类实例化的行为影响是一致的，请参阅{@link DynamicClass 动态类型函数变更的作用时机}
  * <p>你可以使用lambda表达式引用{@link ProxyMaker#getDefault(DynamicMaker, ProxyHandler)}获取默认的lambda实现，
- * 或者实现此类的抽象方法{@link ProxyMaker#invoke(DynamicObject, FuncMarker, ArgumentList)}。
+ * 或者实现此类的抽象方法{@link ProxyMaker#invoke(DynamicObject, FuncMarker, FuncMarker, ArgumentList)}。
  * <pre>{@code
  * 一个简单的用例：
  * ArrayList list = ProxyMaker.getDefault(DynamicMaker.getDefault(), (self, method, args) -> {
@@ -39,20 +39,20 @@ public abstract class ProxyMaker{
   /**获取代理生成器的默认实现实例，需要提供一个{@linkplain DynamicMaker 动态生成器}以构建实例
    *
    * @param maker 创建动态对象使用的生成器
-   * @param proxyHandler 用于代理处理的{@link ProxyMaker#invoke(DynamicObject, FuncMarker, ArgumentList)}方法拦截，所有有效方法调用都会被拦截并传入此方法
+   * @param proxyHandler 用于代理处理的{@link ProxyMaker#invoke(DynamicObject, FuncMarker, FuncMarker, ArgumentList)}方法拦截，所有有效方法调用都会被拦截并传入此方法
    *
    * @return 默认实例*/
   public static ProxyMaker getDefault(DynamicMaker maker, ProxyHandler proxyHandler){
     return new ProxyMaker(maker){
       @Override
-      public Object invoke(DynamicObject<?> proxy, FuncMarker method, ArgumentList args){
-        return proxyHandler.invoke(proxy, method, args);
+      public Object invoke(DynamicObject<?> proxy, FuncMarker method, FuncMarker proxiedMethod, ArgumentList args){
+        return proxyHandler.invoke(proxy, method, proxiedMethod, args);
       }
     };
   }
 
   public DynamicObject<Object> newProxyInstance(Class<?>[] interfaces){
-    return newProxyInstance(Object.class, interfaces, EMPTY_ARGS);
+    return newProxyInstance(interfaces, null);
   }
 
   public <T> DynamicObject<T> newProxyInstance(Class<T> base, Object... args){
@@ -110,18 +110,28 @@ public abstract class ProxyMaker{
 
       Class<?> dyBase = maker.getDynamicBase(base, interfaces, aspects);
       for(Method method: dyBase.getDeclaredMethods()){
-        if(method.getAnnotation(DynamicMaker.DynamicMethod.class) != null && filterMethods(method.getName(), method.getParameterTypes())){
+        String methodName = method.getName();
+        if(method.getAnnotation(DynamicMaker.DynamicMethod.class) != null && filterMethods(methodName, method.getParameterTypes())){
           FunctionType type = FunctionType.from(method);
+          FuncMarker caller = new FuncMarker() {
+            @Override
+            public String getName() { return methodName; }
+            @Override
+            public FunctionType getType() { return type; }
+            @Override
+            public Object invoke(DynamicObject<?> self, ArgumentList args) { return self.invokeFunc(type, methodName, args.args()); }
+          };
+
           dyc.setFunction(
-              method.getName(),
+              methodName,
               (s, su, a) -> {
-                FunctionMarker caller = FunctionMarker.make(su.getFunc(method.getName(), type));
+                FunctionMarker superCaller = FunctionMarker.make(su.getFunc(methodName, type));
                 try{
-                  Object res = invoke(s, caller, a);
-                  caller.recycle();
+                  Object res = invoke(s, caller, superCaller, a);
+                  superCaller.recycle();
                   return res;
                 }catch(Throwable e){
-                  caller.recycle();
+                  superCaller.recycle();
                   throwException(e);
                   return null;
                 }
@@ -151,7 +161,7 @@ public abstract class ProxyMaker{
    * @param args 实参列表
    *
    * @return 返回值*/
-  protected abstract Object invoke(DynamicObject<?> proxy, FuncMarker method, ArgumentList args);
+  protected abstract Object invoke(DynamicObject<?> proxy, FuncMarker method, FuncMarker proxiedMethod, ArgumentList args);
 
   /**异常处理器，当代理运行中发生任何异常都会转入此方法进行处理，默认直接封装为RuntimeException抛出
    *
@@ -166,16 +176,18 @@ public abstract class ProxyMaker{
     private static FunctionMarker[] pool = new FunctionMarker[128];
     private static int cursor = -1;
 
-    private String signature;
+    private String name;
+    private FunctionType type;
     private IFunctionEntry entry;
     private Function<?, Object> function;
 
     private static FunctionMarker make(IFunctionEntry functionEntry){
       FunctionMarker res = cursor < 0? new FunctionMarker(): pool[cursor];
 
+      res.name = functionEntry.getName();
+      res.type = functionEntry.getType();
       res.entry = functionEntry;
       res.function = functionEntry.getFunction();
-      res.signature = functionEntry.getName() + functionEntry.getType();
 
       return res;
     }
@@ -198,11 +210,12 @@ public abstract class ProxyMaker{
 
     @Override
     public String toString(){
-      return "function: " + signature;
+      return "function: " + name + type;
     }
 
     private void recycle(){
-      signature = null;
+      name = null;
+      type = null;
       function = null;
       entry = null;
 
@@ -242,6 +255,6 @@ public abstract class ProxyMaker{
   }
 
   public interface ProxyHandler{
-    Object invoke(DynamicObject<?> proxy, FuncMarker superFunction, ArgumentList args);
+    Object invoke(DynamicObject<?> proxy, FuncMarker func, FuncMarker superFunction, ArgumentList args);
   }
 }

@@ -30,7 +30,7 @@ import java.util.HashMap;
  * DynamicMaker maker = DynamicMaker.getDefault();
  * DynamicClass dyClass = DynamicClass.get("Sample");
  * dyClass.visitClass(Template.class, maker.getHelper());
- * DynamicObject dyObject = maker.newInstance(dyClass);
+ * DynamicObject<Object> dyObject = maker.newInstance(dyClass);
  * dyObject.invokeFunc("method", "str");
  *
  * >>> string0

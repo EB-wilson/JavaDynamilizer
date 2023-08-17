@@ -22,14 +22,11 @@ public class JavaMethodEntry implements IFunctionEntry{
   private final FunctionType type;
   private final Function<?, ?> defFunc;
 
-  private final boolean isFinal;
-
   /**直接通过目标方法创建方法入口，并生成对方法引用的句柄提供给匿名函数以描述此函数行为
    *
    * @param invokeMethod 样版方法*/
   public JavaMethodEntry(Method invokeMethod, DataPool owner){
     this.name = invokeMethod.getName();
-    this.isFinal = Modifier.isFinal(invokeMethod.getModifiers());
 
     if(!Modifier.isStatic(invokeMethod.getModifiers()))
       throw new IllegalHandleException("cannot assign a non-static method to function");
@@ -97,11 +94,6 @@ public class JavaMethodEntry implements IFunctionEntry{
   @Override
   public String getName(){
     return name;
-  }
-
-  @Override
-  public boolean modifiable(){
-    return !isFinal;
   }
 
   @Override

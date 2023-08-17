@@ -81,13 +81,13 @@ public class DataPool{
   public void setFunction(String name, Function<?, ?> function, Class<?>... argsType){
     FunctionType type = FunctionType.inst(argsType);
     funcPool.computeIfAbsent(name, n -> new HashMap<>())
-        .put(type, new FunctionEntry<>(name, true, function, type));
+        .put(type, new FunctionEntry<>(name, function, type));
   }
 
   public <R, S> void setFunction(String name, Function.SuperGetFunction<S,R> func, Class<?>[] argTypes){
     FunctionType type = FunctionType.inst(argTypes);
     funcPool.computeIfAbsent(name, n -> new HashMap<>())
-        .put(type, new FunctionEntry<>(name, true, func, type, this));
+        .put(type, new FunctionEntry<>(name, func, type, this));
   }
 
   public void setFunction(IFunctionEntry functionEntry){
