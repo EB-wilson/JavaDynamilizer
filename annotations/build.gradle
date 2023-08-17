@@ -33,6 +33,4 @@ publishing {
 
 dependencies {
     compileOnly project(":core")
-
-    annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.4'
 }

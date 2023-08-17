@@ -34,6 +34,4 @@ publishing {
 dependencies {
   implementation 'org.ow2.asm:asm:9.3'
   apiElements 'org.ow2.asm:asm:9.3'
-
-  annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.4'
 }
