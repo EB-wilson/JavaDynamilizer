@@ -34,4 +34,7 @@ publishing {
 dependencies {
   implementation 'org.ow2.asm:asm:9.3'
   apiElements 'org.ow2.asm:asm:9.3'
+
+  annotationProcessor 'com.github.bsideup.jabel:jabel-javac-plugin:0.4.2'
+  compileOnly 'com.github.bsideup.jabel:jabel-javac-plugin:0.4.2'
 }
