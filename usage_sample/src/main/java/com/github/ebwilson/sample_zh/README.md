@@ -1,6 +1,6 @@
 ## 案例
 ---
-English sample in [here](https://github.com/EB-wilson/JavaDynamilizer/tree/master/usage_sample/src/main/java/com/github/ebwilson/sample)
+English sample is [here](https://github.com/EB-wilson/JavaDynamilizer/tree/master/usage_sample/src/main/java/com/github/ebwilson/sample)
 
 这里列出了JavaDynamilizer的使用参考样例，包括基本的特性及用法样例，AOP，反射框架，热修复等实例，并提供了自定义实现的案例指南，您可以通过阅读这些样例参考以更快的了解本框架的使用方法及功能和意义。
 

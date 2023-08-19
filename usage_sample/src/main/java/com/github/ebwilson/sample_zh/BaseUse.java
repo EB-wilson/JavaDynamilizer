@@ -13,10 +13,11 @@ import java.util.HashMap;
 public class BaseUse {
   @SuppressWarnings("unchecked")
   public static void main(String[] args) {
+    //获取默认动态工厂，关于自定义动态工厂实现请参阅高级应用
+    DynamicMaker maker = DynamicFactory.getDefault();
 
-    DynamicMaker maker = DynamicFactory.getDefault();//获取默认动态工厂，关于自定义动态工厂实现请参阅高级应用
-
-    DynamicClass Sample = DynamicClass.get("Sample");//创建动态类型，这是必要的，无论动态类是否有行为，get方法会返回给定名称的动态类型，如果类型尚不存在则会创建一个新的动态类型
+    //创建动态类型，这是必要的，无论动态类是否有行为，get方法会返回给定名称的动态类型，如果类型尚不存在则会创建一个新的动态类型
+    DynamicClass Sample = DynamicClass.get("Sample");
 
     /*===============================
      * 如下所示是动态对象的基本使用方法
@@ -30,10 +31,12 @@ public class BaseUse {
     DynamicObject<HashMap<String, String>> dyMap = (DynamicObject<HashMap<String, String>>) map;
     //设置行为，对put方法进行监视：
     dyMap.setFunc("put", (self, su, arg) -> {
-      su.invokeFunc("put", arg);//调用超方法，等价于super.put(key, value)
+      su.invokeFunc("put", arg);
+      //调用超方法，等价于super.put(key, value)
 
       System.out.println("putting " + arg.<String>get(0) + " -> " + arg.<String>get(1));
-    }, Object.class, Object.class);//泛型擦除，对泛型参数的限定需使用类型参数的上界，此方法上界未定，即Object
+    }, Object.class, Object.class);
+    //泛型擦除，对泛型参数的限定需使用类型参数的上界，此方法上界未定，即Object
 
     //测试打印
     map.put("a", "string 1");
@@ -72,7 +75,8 @@ public class BaseUse {
     //上面已经定义过一个动态类型Sample，直接使用它，首先给动态类型声明一个函数：
     Sample.setFunction("put", (self, su, arg) -> {
       System.out.println("Dynamic class instance handle:");
-      su.invokeFunc("put", arg);//这里的语义和对动态类型直接定义是一致的
+      su.invokeFunc("put", arg);
+      //这里的语义和对动态类型直接定义是一致的
     }, Object.class, Object.class);
 
     //测试打印，观察打印结果，可以发现调用的过程中最低层次的调用发生了变化
@@ -132,7 +136,8 @@ public class BaseUse {
     //另外，使用动态类型时，this指针的类型就是不确定的了，所以通常来说不指定它的泛型限定类，但对于只会用于一个合法的java类层次结构的动态类，你可以为它分配一个确切的类型以更方便的使用，
     public static Object get(@This DynamicObject<?> self, @Super DataPool.ReadOnlyPool su, Object key){
       System.out.println("getting entries, key: " + key);
-      return su.invokeFunc("get", key);//此处类型不确切，所以使用反射调用方法
+      return su.invokeFunc("get", key);
+      //此处类型不确切，所以使用反射调用方法
     }
   }
 
