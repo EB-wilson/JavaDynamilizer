@@ -1,7 +1,9 @@
 # 项目排除路径
 /.gradle/
+/.idea/
 /build/
 /build/classes/java/Test/
 core/build
 usage_sample/build
 baseimpl/build
+annotations/build
