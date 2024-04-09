@@ -16,8 +16,8 @@ public class FunctionEntry<S, R> implements IFunctionEntry{
     this(
         name,
         (s, a) -> {
-          DataPool.ReadOnlyPool p;
-          R res = func.invoke(s, p = owner.getSuper(s, s.baseSuperPointer()), a);
+          DataPool.ReadOnlyPool p = owner.getSuper(s, s.baseSuperPointer());
+          R res = func.invoke(s, p, a);
           p.recycle();
           return res;
         },

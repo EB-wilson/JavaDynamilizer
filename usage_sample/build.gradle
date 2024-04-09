@@ -19,7 +19,7 @@ dependencies {
     implementation project(":baseimpl")
     implementation project(":annotations")
 
-    annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.4'
+    annotationProcessor 'com.github.EB-wilson.UniverseCore:annotations:1.8.9'
     annotationProcessor project(":apt")
 }
 

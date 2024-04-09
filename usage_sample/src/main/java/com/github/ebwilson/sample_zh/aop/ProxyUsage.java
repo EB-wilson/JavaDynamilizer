@@ -76,5 +76,33 @@ public class ProxyUsage {
         System.out.println(builder);
         listProxied.clear();
         System.out.println(builder);
+
+        System.out.println("\n===========sep line==========\n");
+
+        //有时候，会需要对一些非动态化的对象作委托，这种时候需要将被代理的非动态对象进行动态包装，在DynamicMaker当中提供了一个包装方法：
+        ArrayList<String> delegate = new ArrayList<>();
+        DynamicObject<ArrayList<String>> wrapped = maker.wrapInstance(delegate);
+
+        //这个对象与来自newInstance的动态对象不同，这是一个受限制的动态对象，例如它只能用于动态调用被包装对象的已有方法，而不能创建新函数
+        wrapped.invokeFunc("add", "hello world");
+        System.out.println(delegate);
+
+        //并且尝试转换到被包装对象的类型会发生异常：
+        //ArrayList<String> test = (ArrayList<String>)wrapped;//抛出异常
+        //应使用:
+        ArrayList<String> test = wrapped.objSelf();
+
+        //该包装可被用在类型代理上，当调用需要的被代理对象是一个非动态对象，而又不希望对它动态化，则可将其进行包装：
+        ProxyMaker wrapProxy = ProxyMaker.getDefault(maker, (self, func, superFunc, arg) -> {
+            System.out.println("invoke to proxy object, delegate method: " + func.signature());
+            return func.invoke(wrapped, arg);
+        });
+        List<String> proxied = wrapProxy.newProxyInstance(new Class[]{List.class}).objSelf();
+
+        //测试打印
+        proxied.add("i am a robot");
+        System.out.println(delegate);
+        proxied.clear();
+        System.out.println(delegate);
     }
 }

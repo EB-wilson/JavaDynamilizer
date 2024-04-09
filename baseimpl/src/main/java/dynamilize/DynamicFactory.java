@@ -144,13 +144,15 @@ public class DynamicFactory {
       }
 
       @Override
-      public IVariable genJavaVariableRef(Field field, DataPool targetPool) {
+      public IVariable genJavaVariableRef(Field field) {
+        makeAccess(field);
         return new JavaVariable(field);
       }
 
       @Override
-      public IFunctionEntry genJavaMethodRef(Method method, DataPool targetPool) {
-        return new JavaMethodEntry(method, targetPool);
+      public IFunctionEntry genJavaMethodRef(Method method) {
+        makeAccess(method);
+        return new JavaMethodEntry(method);
       }
     };
 

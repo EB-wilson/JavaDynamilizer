@@ -10,7 +10,7 @@ import java.lang.reflect.Method;
 public interface JavaHandleHelper{
   void makeAccess(Object object);
 
-  IVariable genJavaVariableRef(Field field, DataPool targetPool);
+  IVariable genJavaVariableRef(Field field);
 
-  IFunctionEntry genJavaMethodRef(Method method, DataPool targetPool);
+  IFunctionEntry genJavaMethodRef(Method method);
 }

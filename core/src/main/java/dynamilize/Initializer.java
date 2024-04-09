@@ -13,7 +13,5 @@ public class Initializer<T>{
 
   public interface Producer<T>{
     T get();
-
-
   }
 }

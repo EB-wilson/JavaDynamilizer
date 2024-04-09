@@ -1,10 +1,14 @@
 package dynamilize;
 
 import dynamilize.runtimeannos.Exclude;
+import dynamilize.runtimeannos.Super;
+import dynamilize.runtimeannos.This;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**保存动态对象行为信息的动态类型，描述了对象的共有行为和变量信息。
@@ -91,7 +95,7 @@ public class DynamicClass{
   }
 
   /**创建类型实例，不应从外部调用此方法构造实例*/
-  private DynamicClass(String name, DynamicClass superDyClass){
+  DynamicClass(String name, DynamicClass superDyClass){
     this.name = name;
     this.superDyClass = superDyClass;
     this.data = new DataPool(superDyClass == null? null: superDyClass.data);
@@ -175,8 +179,7 @@ public class DynamicClass{
 
       if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers())) continue;
 
-      helper.makeAccess(method);
-      data.setFunction(helper.genJavaMethodRef(method, data));
+      setFunctionWithMethod(helper, method);
     }
 
     for(Field field: template.getDeclaredFields()){
@@ -196,8 +199,7 @@ public class DynamicClass{
     if(!Modifier.isStatic(method.getModifiers()) || !Modifier.isPublic(method.getModifiers()))
       throw new IllegalHandleException("method template must be public and static");
 
-    helper.makeAccess(method);
-    data.setFunction(helper.genJavaMethodRef(method, data));
+    setFunctionWithMethod(helper, method);
   }
 
   /**访问一个字段样版，不同于{@link DynamicClass#visitClass(Class,JavaHandleHelper)}，此方法只访问一个单独的字段并创建其行为样版。
@@ -254,6 +256,66 @@ public class DynamicClass{
    * @param prov 生产变量初始值的工厂函数*/
   public void setVariable(String name, Initializer.Producer<?> prov){
     data.setVariable(new Variable(name, new Initializer<>(prov)));
+  }
+
+  private void setFunctionWithMethod(JavaHandleHelper helper, Method method) {
+    if(!Modifier.isStatic(method.getModifiers()))
+      throw new IllegalHandleException("cannot assign a non-static method to function");
+
+    Parameter[] parameters = method.getParameters();
+    ArrayList<Class<?>> arg = new ArrayList<>();
+
+    boolean thisPointer = false, superPointer = false;
+    for(int i = 0; i < parameters.length; i++){
+      Parameter param = parameters[i];
+      if(param.getAnnotation(This.class) != null){
+        if(thisPointer)
+          throw new IllegalHandleException("only one self-pointer can exist");
+        if(i != 0)
+          throw new IllegalHandleException("self-pointer must be the first in parameters");
+
+        thisPointer = true;
+      }
+      else if(param.getAnnotation(Super.class) != null){
+        if(superPointer)
+          throw new IllegalHandleException("only one super-pointer can exist");
+        if(i != (thisPointer? 1: 0))
+          throw new IllegalHandleException("super-pointer must be the first in parameters or the next of self-pointer(if self pointer was existed)");
+
+        superPointer = true;
+      }
+      else arg.add(param.getType());
+    }
+
+    boolean thisP = thisPointer;
+    boolean superP = superPointer;
+
+    Function<Object, Object> v = helper.genJavaMethodRef(method).getFunction();
+
+    int offset = thisP? superP? 2: 1: 0;
+    FunctionType type = FunctionType.inst(method);
+
+    data.setFunction(name, (self, args) -> {
+      Object[] argsArray = args.args();
+      Object[] realArgArr = ArgumentList.getList(argsArray.length + offset);
+
+      if(thisP) realArgArr[0] = self;
+
+      DataPool.ReadOnlyPool superPool = null;
+      if(thisP && superP) realArgArr[1] = data.getSuper(self, superPool = self.baseSuperPointer());
+      else if(!thisP && superP) realArgArr[0] = data.getSuper(self, superPool = self.baseSuperPointer());
+
+      if(argsArray.length != 0) System.arraycopy(argsArray, 0, realArgArr, offset, argsArray.length);
+
+      try{
+        Object res = v.invoke(self, type, realArgArr);
+        ArgumentList.recycleList(realArgArr);
+        if(superPool != null) superPool.recycle();
+        return res;
+      }catch(Throwable e){
+        throw new RuntimeException(e);
+      }
+    }, arg.toArray(new Class[0]));
   }
 
   @SuppressWarnings({"unchecked"})

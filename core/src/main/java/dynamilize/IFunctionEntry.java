@@ -1,6 +1,10 @@
 package dynamilize;
 
 public interface IFunctionEntry{
+  default String signature(){
+    return FunctionType.signature(getName(), getType());
+  }
+
   /**获取入口的名称*/
   String getName();
 

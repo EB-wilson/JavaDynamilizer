@@ -21,7 +21,7 @@ import static dynamilize.runtimeannos.FuzzyMatch.Exact.INSTANCE;
 
 /**
  * 动态类型运作的核心工厂类型，用于将传入的动态类型与委托基类等构造出动态委托类型以及其实例。
- * <p>定义了基于{@link ASMGenerator}的默认生成器实现，通过{@link DynamicMaker#getDefault()}获取该实例以使用
+ * <p>定义了基于{@link ASMGenerator}的默认生成器实现
  * <p>若需要特殊的实现，则需要重写/实现此类的方法，主要的方法：
  * <ul>
  * <li><strong>{@link DynamicMaker#makeClassInfo(Class, Class[], Class[])}</strong>：决定此工厂如何构造委托类的描述信息
@@ -104,6 +104,8 @@ public abstract class DynamicMaker {
   private final HashMap<Class<?>, DataPool> classPoolsMap = new HashMap<>();
   private final HashMap<Class<?>, HashMap<FunctionType, Constructor<?>>> constructors = new HashMap<>();
 
+  private final HashMap<Class<?>, DataPool> wrapClassPoolMap = new HashMap<>();
+
   /**
    * 创建一个实例，并传入其要使用的{@linkplain JavaHandleHelper java行为支持器}，子类引用此构造器可能直接设置默认的行为支持器而无需外部传入
    */
@@ -111,12 +113,49 @@ public abstract class DynamicMaker {
     this.helper = helper;
   }
 
-  /**
-   * @deprecated DynamicMaker的预制创建已转移到baseimpl模块DynamicFactory，此API将被移除
-   */
-  @Deprecated
-  public static DynamicMaker getDefault() {
-    throw new IllegalHandleException("please use dynamilize.DynamicFactory in module JavaDynamilizer.baseimpl");
+  public void clearAllCache(){
+    classPool.clear();
+    classPoolsMap.clear();
+    constructors.clear();
+    wrapClassPoolMap.clear();
+  }
+
+  /**将传入的对象包装为一个{@link WrappedObject}*/
+  public <T> DynamicObject<T> wrapInstance(T object){
+    Class<?> curr = object.getClass();
+
+    LinkedList<Class<?>> l = new LinkedList<>();
+    while (curr != null) {
+      if (curr.getAnnotation(DynamicType.class) != null)
+        throw new IllegalHandleException("Cannot wrap a dynamic type instance");
+
+      l.addFirst(curr);
+      curr = curr.getSuperclass();
+    }
+
+    DataPool res = null;
+    for (Class<?> clazz : l){
+      DataPool fr = res;
+      res = wrapClassPoolMap.computeIfAbsent(clazz, c -> {
+        DataPool r = new DataPool(fr);
+
+        for (Method method : clazz.getDeclaredMethods()) {
+          if (Modifier.isStatic(method.getModifiers())) continue;
+
+          r.setFunction(helper.genJavaMethodRef(method));
+        }
+
+        for (Field field : clazz.getDeclaredFields()) {
+          if (Modifier.isStatic(field.getModifiers())) continue;
+
+          r.setVariable(helper.genJavaVariableRef(field));
+        }
+
+        return r;
+      });
+    }
+
+    return new WrappedObject<>(object, res);
   }
 
   /**
@@ -284,13 +323,13 @@ public abstract class DynamicMaker {
             }
           }
           curr = curr.getSuperclass();
+          continue;
         }
 
         for (Field field : curr.getDeclaredFields()) {
           if (Modifier.isStatic(field.getModifiers()) || isInternalField(field.getName())) continue;
 
-          helper.makeAccess(field);
-          res.setVariable(helper.genJavaVariableRef(field, res));
+          res.setVariable(helper.genJavaVariableRef(field));
         }
         curr = curr.getSuperclass();
       }
@@ -850,9 +889,9 @@ public abstract class DynamicMaker {
     }
 
     // public Object invokeSuper(String signature, Object... args);{
-    //   switch(methodIndex.get(signature)){
+    //   return switch(methodIndex.get(signature)){
     //     ...
-    //     case *index*: super.*method*(args[0], args[1],...); break;
+    //     case *index* -> super.*method*(args[0], args[1],...);
     //     ...
     //   }
     // }

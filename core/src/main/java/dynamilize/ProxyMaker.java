@@ -111,7 +111,7 @@ public abstract class ProxyMaker{
       Class<?> dyBase = maker.getDynamicBase(base, interfaces, aspects);
       for(Method method: dyBase.getDeclaredMethods()){
         String methodName = method.getName();
-        if(method.getAnnotation(DynamicMaker.DynamicMethod.class) != null && filterMethods(methodName, method.getParameterTypes())){
+        if(method.getAnnotation(DynamicMaker.DynamicMethod.class) != null){
           FunctionType type = FunctionType.from(method);
           FuncMarker caller = new FuncMarker() {
             @Override
@@ -145,12 +145,6 @@ public abstract class ProxyMaker{
     }
 
     return dyc;
-  }
-
-  /**@deprecated 请使用切面接口限定动态委托范围*/
-  @Deprecated
-  protected boolean filterMethods(String methodName, Class<?>... argTypes) {
-    return true;
   }
 
   /**代理处理器，所有被代理的方法执行被拦截都会转入该方法，方法/函数都会以一个匿名函数的形式传递给这个方法
@@ -232,6 +226,10 @@ public abstract class ProxyMaker{
 
   /**调用封装器，提供了一个方法{@link FuncMarker#invoke(DynamicObject, ArgumentList)}方法来直接调用这个对象封装的方法或者函数*/
   public interface FuncMarker {
+    default String signature(){
+      return FunctionType.signature(getName(), getType());
+    }
+
     String getName();
 
     FunctionType getType();

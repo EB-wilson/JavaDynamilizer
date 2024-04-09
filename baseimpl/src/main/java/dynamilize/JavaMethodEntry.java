@@ -1,14 +1,7 @@
 package dynamilize;
 
-import dynamilize.runtimeannos.Super;
-import dynamilize.runtimeannos.This;
-
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.Parameter;
-import java.util.ArrayList;
 
 /**对{@linkplain DynamicClass#visitClass(Class, JavaHandleHelper) 行为样版}中方法描述的入口，在动态类中描述子实例的某一函数行为。
  * <p>方法入口的运行实际上是对样版方法的引用，因此需要确保样版方法所在的类始终有效，方法入口会生成这个方法的入口函数提供给动态对象使用
@@ -16,8 +9,6 @@ import java.util.ArrayList;
  * @author EBwilson */
 @SuppressWarnings("unchecked")
 public class JavaMethodEntry implements IFunctionEntry{
-  private static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
-
   private final String name;
   private final FunctionType type;
   private final Function<?, ?> defFunc;
@@ -25,70 +16,17 @@ public class JavaMethodEntry implements IFunctionEntry{
   /**直接通过目标方法创建方法入口，并生成对方法引用的句柄提供给匿名函数以描述此函数行为
    *
    * @param invokeMethod 样版方法*/
-  public JavaMethodEntry(Method invokeMethod, DataPool owner){
+  public JavaMethodEntry(Method invokeMethod){
     this.name = invokeMethod.getName();
+    this.type = FunctionType.inst(invokeMethod);
 
-    if(!Modifier.isStatic(invokeMethod.getModifiers()))
-      throw new IllegalHandleException("cannot assign a non-static method to function");
-
-    Parameter[] parameters = invokeMethod.getParameters();
-    ArrayList<Class<?>> arg = new ArrayList<>();
-
-    boolean thisPointer = false, superPointer = false;
-    for(int i = 0; i < parameters.length; i++){
-      Parameter param = parameters[i];
-      if(param.getAnnotation(This.class) != null){
-        if(thisPointer)
-          throw new IllegalHandleException("only one self-pointer can exist");
-        if(i != 0)
-          throw new IllegalHandleException("self-pointer must be the first in parameters");
-
-        thisPointer = true;
+    defFunc = (self, args) -> {
+      try {
+        return invokeMethod.invoke(self.objSelf(), args.args());
+      } catch (InvocationTargetException|IllegalAccessException e) {
+        throw new RuntimeException(e);
       }
-      else if(param.getAnnotation(Super.class) != null){
-        if(superPointer)
-          throw new IllegalHandleException("only one super-pointer can exist");
-        if(i != (thisPointer? 1: 0))
-          throw new IllegalHandleException("super-pointer must be the first in parameters or the next of self-pointer(if self pointer was existed)");
-
-        superPointer = true;
-      }
-      else arg.add(param.getType());
-    }
-
-    type = FunctionType.inst(arg);
-
-    boolean thisP = thisPointer;
-    boolean superP = superPointer;
-
-    try{
-      MethodHandle call = LOOKUP.unreflect(invokeMethod);
-      int offset = thisP? superP? 2: 1: 0;
-
-      defFunc = (self, args) -> {
-        Object[] argsArray = args.args();
-        Object[] realArgArr = ArgumentList.getList(argsArray.length + offset);
-
-        if(thisP) realArgArr[0] = self;
-
-        DataPool.ReadOnlyPool superPool = null;
-        if(thisP && superP) realArgArr[1] = owner.getSuper(self, superPool = self.baseSuperPointer());
-        else if(!thisP && superP) realArgArr[0] = owner.getSuper(self, superPool = self.baseSuperPointer());
-
-        if(argsArray.length != 0) System.arraycopy(argsArray, 0, realArgArr, offset, argsArray.length);
-
-        try{
-          Object res = call.invokeWithArguments(realArgArr);
-          ArgumentList.recycleList(realArgArr);
-          if(superPool != null) superPool.recycle();
-          return res;
-        }catch(Throwable e){
-          throw new RuntimeException(e);
-        }
-      };
-    }catch(IllegalAccessException e){
-      throw new RuntimeException(e);
-    }
+    };
   }
 
   @Override

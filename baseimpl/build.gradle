@@ -34,7 +34,7 @@ dependencies {
   compileOnly 'com.github.bsideup.jabel:jabel-javac-plugin:0.4.2'
 }
 
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
   sourceCompatibility = 9
   targetCompatibility = 9
 

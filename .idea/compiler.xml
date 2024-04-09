@@ -21,22 +21,23 @@
       <profile name="Gradle Imported" enabled="true">
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.EB-wilson.UniverseCore/annotations/1.8.4/a59ef2a38aba5f21023e3db5ffc9d7c825f9ce00/annotations-1.8.4.jar" />
-          <entry name="$PROJECT_DIR$/apt/build/libs/apt.jar" />
-          <entry name="$PROJECT_DIR$/annotations/build/libs/annotations.jar" />
-        </processorPath>
-        <module name="JavaDynamilizer.usage_sample.main" />
-      </profile>
-      <profile name="Gradle Imported" enabled="true">
-        <outputRelativeToContentRoot value="true" />
-        <processorPath useClasspath="false">
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.bsideup.jabel/jabel-javac-plugin/0.4.2/bdfa2f76bfb7924ba2e6b5aadac66a391b2ede0f/jabel-javac-plugin-0.4.2.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy/1.11.21/d7316217c98275a29a625b564a7f6c05957afc5a/byte-buddy-1.11.21.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.11.21/1335e5048ca86e7d8e5974b1c55fc285af9239ac/byte-buddy-agent-1.11.21.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.9.0/8f503e6d9b500ceff299052d6be75b38c7257758/jna-5.9.0.jar" />
         </processorPath>
+        <module name="JavaDynamilizer.annotations.main" />
         <module name="com.github.EB-wilson.JavaDynamilizer.baseimpl.main" />
         <module name="JavaDynamilizer.core.main" />
+      </profile>
+      <profile name="Gradle Imported" enabled="true">
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.EB-wilson.UniverseCore/annotations/1.8.9/528ffe591b684f36633823e4a2fb12d99f2653dc/annotations-1.8.9.jar" />
+          <entry name="$PROJECT_DIR$/apt/build/libs/apt.jar" />
+          <entry name="$PROJECT_DIR$/annotations/build/libs/annotations.jar" />
+        </processorPath>
+        <module name="JavaDynamilizer.usage_sample.main" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel target="1.8" />

@@ -78,6 +78,10 @@ public class FunctionType{
     return res;
   }
 
+  public static FunctionType inst(Method method){
+    return inst(method.getParameterTypes());
+  }
+
   public static FunctionType inst(Object... param){
     return inst(unwrapped(toTypes(param)));
   }

@@ -83,7 +83,7 @@ public interface DynamicObject<Self>{
    * @return 指定函数的匿名表示*/
   IFunctionEntry getFunc(String name, FunctionType type);
 
-  default <R> Func<R> getFunction(String name, FunctionType type){
+  default <R> Delegate<R> getFunction(String name, FunctionType type){
     IFunctionEntry entry = getFunc(name, type);
     if(entry == null)
       throw new IllegalHandleException("no such function: " + name + type);
@@ -91,16 +91,16 @@ public interface DynamicObject<Self>{
     return a -> (R) entry.<Self, R>getFunction().invoke(this, a);
   }
 
-  default <R> Function<Self, R> getFunc(String name, Class<?>... types){
+  default <R> Delegate<R> getFunction(String name, Class<?>... types){
     FunctionType type = FunctionType.inst(types);
-    Function<Self, R> f = getFunc(name, type).getFunction();
+    Delegate<R> f = getFunction(name, type);
     type.recycle();
     return f;
   }
 
-  default <R> Func<R> getFunction(String name, Class<?>... types){
+  default <R> Function<Self, R> getFunc(String name, Class<?>... types){
     FunctionType type = FunctionType.inst(types);
-    Func<R> f = getFunction(name, type);
+    Function<Self, R> f = getFunc(name, type).getFunction();
     type.recycle();
     return f;
   }
@@ -173,7 +173,7 @@ public interface DynamicObject<Self>{
     return res.invoke( this, args);
   }
 
-  /**将对象自身经过一次强转换并返回，请勿重写此方法的行为，这个方法仅为方便使用而设计，没有规范认为使用动态对象需要此方法获得实例*/
+  /**将对象自身经过一次强转换并返回*/
   default <T extends Self> T objSelf(){
     return (T) this;
   }

@@ -1,7 +1,8 @@
 package dynamilize;
 
+/**经过包装的委托调用函数接口，与{@linkplain Function 函数}不同，委托不接收this指针*/
 @FunctionalInterface
-public interface Func<R>{
+public interface Delegate<R>{
   R invoke(ArgumentList args);
 
   default R invoke(Object... args){
